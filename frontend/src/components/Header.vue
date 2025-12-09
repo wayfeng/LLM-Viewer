@@ -7,19 +7,19 @@
         |
         <span>Model: </span>
         <select v-model="select_model_id">
-            <option v-for="model_id in avaliable_model_ids" :value="model_id">{{ model_id }}</option>
+            <option v-for="model_id in available_model_ids" :value="model_id">{{ model_id }}</option>
         </select>
         <span> | </span>
         <span>Hardware: </span>
         <select v-model="select_hardware">
-            <option v-for="hardware in avaliable_hardwares" :value="hardware">{{ hardware }}</option>
+            <option v-for="hardware in available_hardwares" :value="hardware">{{ hardware }}</option>
         </select>
     </div>
     <div>
         <span> | </span>
         <span>Server: </span>
         <select v-model="ip_port">
-            <option value="api.llm-viewer.com">api.llm-viewer.com</option>
+            <option value="172.16.112.46:5000">172.16.112.46</option>
             <option value="127.0.0.1:5000">127.0.0.1</option>
         </select>
     </div>
@@ -72,29 +72,29 @@ const hardware = inject('hardware');
 const global_update_trigger = inject('global_update_trigger');
 const ip_port = inject('ip_port');
 
-const avaliable_hardwares = ref([]);
-const avaliable_model_ids = ref([]);
+const available_hardwares = ref([]);
+const available_model_ids = ref([]);
 
 const version = ref(llm_viewer_frontend_version)
 
 const is_show_help = ref(false)
 
-function update_avaliable() {
-    const url = 'http://' + ip_port.value + '/get_avaliable'
+function update_available() {
+    const url = 'http://' + ip_port.value + '/get_available'
     axios.get(url).then(function (response) {
         console.log(response);
-        avaliable_hardwares.value = response.data.avaliable_hardwares
-        avaliable_model_ids.value = response.data.avaliable_model_ids
+        available_hardwares.value = response.data.available_hardwares
+        available_model_ids.value = response.data.available_model_ids
     })
         .catch(function (error) {
-            console.log("error in get_avaliable");
+            console.log("error in get_available");
             console.log(error);
         });
 }
 
 onMounted(() => {
     console.log("Header mounted")
-    update_avaliable()
+    update_available()
 })
 
 var select_model_id = ref('meta-llama/Llama-2-7b-hf');
@@ -113,7 +113,7 @@ watch(select_hardware, (n) => {
 
 watch(ip_port, (n) => {
     console.log("ip_port", n)
-    update_avaliable()
+    update_available()
 })
 
 

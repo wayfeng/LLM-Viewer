@@ -37,7 +37,7 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-analyzer = ModelAnalyzer(args.model_id, args.hardware, args.config_file,source=args.source)
+analyzer = ModelAnalyzer(args.model_id, args.hardware, args.config_file, source=args.source)
 results = analyzer.analyze(
     batchsize=args.batchsize,
     seqlen=args.seqlen,

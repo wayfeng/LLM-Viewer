@@ -6,7 +6,7 @@ from model_analyzer import ModelAnalyzer
 from utils import str_number
 import numpy as np
 import re
-from backend_settings import avaliable_model_ids_sources
+from backend_settings import available_model_ids_sources
 
 config_cache = {}
 
@@ -18,7 +18,7 @@ def get_analyer(model_id, hardware, config_path) -> ModelAnalyzer:
             model_id,
             hardware,
             config_path,
-            source=avaliable_model_ids_sources[model_id]["source"],
+            source=available_model_ids_sources[model_id]["source"],
         )
     return config_cache[config]
 

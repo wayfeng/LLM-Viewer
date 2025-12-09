@@ -33,6 +33,7 @@ class ModelAnalyzer:
                 if file.endswith(".py") and file.replace(".py", "") in model_id:
                     config_file = "configs/" + file
                 # print(f"auto search config file {config_file} {file} {model_id}")
+            print(f"config file {config_file}")
         assert config_file is not None, "config file is not found, please specify it manually."
         print(f"use config file {config_file} for {model_id}")
         if source == "huggingface":
@@ -450,9 +451,7 @@ class ModelAnalyzer:
         for layer_info in self.config.post_process(self.model_params, args):
             self._analyze_to_results(**layer_info)
             for data_name in ALL_DATA_NAMES:
-                total_results[layer_info["stage"]][data_name] += self.results[layer_info["stage"]][layer_info["name"]][
-                    data_name
-                ]
+                total_results[layer_info["stage"]][data_name] += self.results[layer_info["stage"]][layer_info["name"]][data_name]
         # for stage in ["prefill", "decode"]:
         #     self._analyze_to_results(
         #         stage,

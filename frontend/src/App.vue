@@ -10,11 +10,11 @@ import LeftPannel from "./components/LeftPannel.vue"
 import Header from "./components/Header.vue"
 import { ref, computed, provide } from 'vue';
 
-const model_id = ref("meta-llama/Llama-2-7b-hf");
-const hardware = ref("nvidia_A6000");
+const model_id = ref("Qwen/Qwen3-4B-Instruct-2507");
+const hardware = ref("intel_arc_b570");
 const global_update_trigger = ref(1);
 const total_results = ref({});
-const ip_port = ref("api.llm-viewer.com");
+const ip_port = ref("172.16.112.46:5000");
 
 provide("model_id", model_id);
 provide("hardware", hardware);

@@ -1,8 +1,7 @@
 from flask import Flask, request
-from flask import render_template
 from flask_cors import CORS
 from get_model_graph import get_model_graph
-from backend_settings import avaliable_hardwares,avaliable_model_ids
+from backend_settings import available_hardwares,available_model_ids
 import argparse
 
 app = Flask(__name__)
@@ -30,11 +29,11 @@ def get_graph():
         "hardware_info": hardware_info,
     }
 
-@app.route("/get_avaliable", methods=["GET"])
-def get_avaliable():
+@app.route("/get_available", methods=["GET"])
+def get_available():
     return {
-        "avaliable_hardwares": avaliable_hardwares,
-        "avaliable_model_ids": avaliable_model_ids,
+        "available_hardwares": available_hardwares,
+        "available_model_ids": available_model_ids,
     }
 
 if __name__ == "__main__":

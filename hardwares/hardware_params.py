@@ -31,5 +31,11 @@ hardware_params = {
     # Intel Skylake-X (Skylake-X, Cascade Lake) Intel Xeon Phi (Knights Landing, Knights Mill) Intel Ice Lake, Tiger Lake and Rocket Lake
     # support AVX-512 & FMA (512-bit), they has throughput of 1 cycle
     # https://www.intel.com/content/www/us/en/products/sku/230496/intel-core-i913900k-processor-36m-cache-up-to-5-80-ghz/specifications.html
+    "nvidia_RTX4090": {"bandwidth": 1008e9, "FP16": 82.5e12, "INT8": 1321e12, "onchip_buffer": 72*1024*1024},
+    # https://www.techpowerup.com/gpu-specs/geforce-rtx-4090.c3889
     "intel_13900k": {"bandwidth": 89.6e9, "FP16": 8 * 5.4e9 * (512 / 16), "onchip_buffer": 36e6},
+    "intel_arc_b60": {"bandwidth": 456e9, "FP16": 57e12, "INT8": 197e12, "onchip_buffer": 18e6},
+    # https://www.intel.com/content/www/us/en/products/sku/243916/intel-arc-pro-b60-graphics/specifications.html
+    "intel_arc_b570": {"bandwidth": 380e9, "FP16": 100e12, "INT8": 203e12, "onchip_buffer": 13.5e6},
+    # https://www.intel.com/content/www/us/en/products/sku/241676/intel-arc-b570-graphics/specifications.html
 }

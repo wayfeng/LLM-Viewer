@@ -1,6 +1,7 @@
 from hardwares.hardware_params import hardware_params
 
-avaliable_model_ids_sources = {
+available_model_ids_sources = {
+    "Qwen/Qwen3-4B-Instruct-2507": {"source": "huggingface"},
     "meta-llama/Llama-2-7b-hf": {"source": "huggingface"},
     "meta-llama/Llama-2-13b-hf": {"source": "huggingface"},
     "meta-llama/Llama-2-70b-hf": {"source": "huggingface"},
@@ -12,8 +13,6 @@ avaliable_model_ids_sources = {
     "facebook/opt-6.7b": {"source": "huggingface"},
     "facebook/opt-30b": {"source": "huggingface"},
     "facebook/opt-66b": {"source": "huggingface"},
-    # "DiT-XL/2": {"source": "DiT"},
-    # "DiT-XL/4": {"source": "DiT"},
 }
-avaliable_model_ids = [_ for _ in avaliable_model_ids_sources.keys()]
-avaliable_hardwares = [_ for _ in hardware_params.keys()]
+available_model_ids = [_ for _ in available_model_ids_sources.keys()]
+available_hardwares = [_ for _ in hardware_params.keys()]
