@@ -1,20 +1,17 @@
 <script setup>
-// import { defineAsyncComponent } from 'vue'
-
-// const Graph = defineAsyncComponent(() =>
-//   import('./components/Graph.vue')
-// )
 
 import Graph from "./components/Graph.vue"
 import LeftPannel from "./components/LeftPannel.vue"
 import Header from "./components/Header.vue"
-import { ref, computed, provide } from 'vue';
 
-const model_id = ref("Qwen/Qwen3-4B-Instruct-2507");
-const hardware = ref("intel_arc_b570");
+import { ref, computed, provide } from 'vue';
+import { IP_PORT, MODEL_ID, HARDWARE } from "./config.js";
+
+const model_id = ref(MODEL_ID);
+const hardware = ref(HARDWARE);
 const global_update_trigger = ref(1);
 const total_results = ref({});
-const ip_port = ref("172.16.112.46:5000");
+const ip_port = ref(IP_PORT);
 
 provide("model_id", model_id);
 provide("hardware", hardware);
@@ -29,9 +26,9 @@ const global_inference_config = ref({
   seq_length: 1024, 
   gen_length: 1,
   tp_size: 1,
-  w_quant: "FP16", 
-  a_quant: "FP16", 
-  kv_quant: "FP16", 
+  w_quant: "INT8", 
+  a_quant: "INT8", 
+  kv_quant: "INT8", 
   use_flashattention: false
 });
 provide("global_inference_config", global_inference_config);
@@ -63,7 +60,6 @@ body {
   width: 98vw; */
   width: 100%;
   height: 100vh;
-
 }
 
 .upper_header {

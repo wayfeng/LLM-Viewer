@@ -1,0 +1,29 @@
+services:
+  frontend:
+    image: llm-viewer-frontend:latest
+    container_name: llm_viewer_frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    working_dir: /app
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"  # Default Vite port
+    networks:
+      - net
+    command: npm run dev
+  backend:
+    image: llm-viewer-backend:latest
+    container_name: llm_viewer_backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    working_dir: /app
+    ports:
+      - "5000:5000"  # FastAPI default port
+    networks:
+      - net
+    command: python app.py
+networks:
+  net:

@@ -1,7 +1,7 @@
 from flask import Flask, request
 from flask_cors import CORS
 from get_model_graph import get_model_graph
-from backend_settings import available_hardwares,available_model_ids
+from settings import available_hardwares, available_model_ids
 import argparse
 
 app = Flask(__name__)

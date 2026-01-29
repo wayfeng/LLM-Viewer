@@ -81,46 +81,19 @@
         Use FlashAttention
         <input type="checkbox" v-model="use_flashattention">
     </div>
-
-    <!-- <div class="config_div">
-        Use Flash Attention
-        <input type="checkbox">
-    </div>
-    <div class="config_div">
-        Decoding Method
-        <select>
-            <option value="Greedy">Greedy</option>
-        </select>
-    </div> -->
     <h2>Network-wise Analysis</h2>
     <div>
         <h3>{{ inference_stage }}</h3>
         <div v-for="(value, key) in total_results[inference_stage]" :key="key" class="network-wise-info-item">
             <span v-if="['bound'].includes(key)">{{ key }}: {{ value }}</span>
-            <span v-else-if="['inference_time'].includes(key)">{{ key }}: {{ strNumberTime(value) }}</span>
-            <span v-else>{{ key }}: {{ strNumber(value) }}</span>
+            <span color="green" v-else-if="['inference_time'].includes(key)">{{ key }}: {{ strNumberTime(value) }}</span>
+            <span v-else-if="['OPs'].includes(key)">{{ key }}: {{ strNumber(value, 'OPs') }}</span>
+            <span v-else>{{ key }}: {{ strNumber(value, 'B') }}</span>
         </div>
         <p>NOTE: The time estimated by the roofline model represents the theoretical performance that the hardware can achieve. 
         The purpose of creating this tool is to help readers gain a clearer understanding of the key factors that influence LLM inference. 
         Only the relative relationships can be referenced. </p>
-        
     </div>
-    <!-- <div v-if="inference_stage=='prefill'">
-        <h3>Prefill</h3>
-        <div v-for="(value, key) in total_results['prefill']" :key="key" class="network-wise-info-item">
-            <span v-if="['bound'].includes(key)">{{ key }}: {{ value }}</span>
-            <span v-else-if="['inference_time'].includes(key)">{{ key }}: {{ strNumberTime(value) }}</span>
-            <span v-else>{{ key }}: {{ strNumber(value) }}</span>
-        </div>
-    </div>
-    <div v-if="inference_stage=='chat'">
-        <h3>Prefill</h3>
-        <div v-for="(value, key) in total_results['chat']" :key="key" class="network-wise-info-item">
-            <span v-if="['bound'].includes(key)">{{ key }}: {{ value }}</span>
-            <span v-else-if="['inference_time'].includes(key)">{{ key }}: {{ strNumberTime(value) }}</span>
-            <span v-else>{{ key }}: {{ strNumber(value) }}</span>
-        </div>
-    </div> -->
 </template>
 
 <script setup>

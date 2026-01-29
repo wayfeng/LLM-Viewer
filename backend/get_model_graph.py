@@ -1,12 +1,10 @@
-from transformers import AutoTokenizer, AutoConfig, AutoModelForCausalLM
 import importlib
 import os
-from hardwares.hardware_params import hardware_params
+import re
+import numpy as np
 from model_analyzer import ModelAnalyzer
 from utils import str_number
-import numpy as np
-import re
-from backend_settings import available_model_ids_sources
+from settings import available_model_ids_sources
 
 config_cache = {}
 
@@ -17,19 +15,9 @@ def get_analyer(model_id, hardware, config_path) -> ModelAnalyzer:
         config_cache[config] = ModelAnalyzer(
             model_id,
             hardware,
-            config_path,
-            source=available_model_ids_sources[model_id]["source"],
+            config_path
         )
     return config_cache[config]
-
-
-# def get_model_config(model_id,config_path):
-#     if model_id not in config_cache:
-#         model_config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
-#         config = importlib.import_module(config_path.replace("/", ".").replace(".py", ""))
-#         config_cache[model_id] = model_config,config
-#     return config_cache[model_id]
-
 
 def get_quant_bit(dtype):
     if dtype == "FP16":
@@ -87,7 +75,7 @@ def get_model_graph(model_id, hardware, config_path, inference_config):
         node = {
             "label": name,
             "id": name,
-            "description": f"OPs:{str_number(OPs)}, Access:{str_number(memory_access)}",
+            "description": f"OPs:{str_number(OPs)}, Access:{str_number(memory_access, 'B')}",
             "info": info,
         }
         if GQA and name in ["qk_matmul", "sv_matmul"]:

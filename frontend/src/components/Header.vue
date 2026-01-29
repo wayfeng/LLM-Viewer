@@ -20,7 +20,7 @@
         <span>Server: </span>
         <select v-model="ip_port">
             <option value="172.16.112.46:5000">172.16.112.46</option>
-            <option value="127.0.0.1:5000">127.0.0.1</option>
+            <option value="llm_viewer_backend:5000">llm_viewer_backend</option>
         </select>
     </div>
     <div>
@@ -29,7 +29,7 @@
     </div>
     <div>
         <span> | </span>
-        <a href="https://github.com/hahnyuan/LLM-Viewer" target="_blank" class="hover-bold">Github Project</a>
+        <a href="https://github.com/wayfeng/LLM-Viewer" target="_blank" class="hover-bold">Github Project</a>
     </div>
     <div>
         <span> | </span>
@@ -97,14 +97,14 @@ onMounted(() => {
     update_available()
 })
 
-var select_model_id = ref('meta-llama/Llama-2-7b-hf');
+var select_model_id = ref('Qwen/Qwen3-4B-Instruct-2507');
 watch(select_model_id, (n) => {
     console.log("select_model_id", n)
     model_id.value = n
     global_update_trigger.value += 1
 })
 
-var select_hardware = ref('nvidia_V100');
+var select_hardware = ref('intel_arc_b60');
 watch(select_hardware, (n) => {
     console.log("select_hardware", n)
     hardware.value = n
@@ -146,11 +146,8 @@ watch(ip_port, (n) => {
     background-color: #5b5b5b;
 }
 
-
-
 .title {
     font-size: 18px;
-    /* 左对齐 */
     text-align: left;
 }
 

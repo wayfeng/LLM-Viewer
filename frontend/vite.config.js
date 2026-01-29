@@ -15,6 +15,9 @@ export default defineConfig({
   },
   define: {
     llm_viewer_frontend_version: JSON.stringify(process.env.npm_package_version)
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 5173
   }
-
 })

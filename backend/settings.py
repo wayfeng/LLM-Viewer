@@ -1,4 +1,12 @@
-# the OPS = sparse OPS/2
+
+available_model_ids_sources = {
+    "Qwen/Qwen3-4B-Instruct-2507": {"source": "file"},
+    "Qwen/Qwen3-32B": {"source": "file"},
+    "Qwen/Qwen3_moe-30B": {"source": "file"},
+    "meta-llama/Llama-2-7b-hf": {"source": "file"},
+    "meta-llama/Llama-2-13b-hf": {"source": "file"},
+    "meta-llama/Llama-2-70b-hf": {"source": "file"}
+}
 
 hardware_params = {
     # NOTICES: For GPU, we use Register File Size as on-chip buffer size
@@ -28,14 +36,23 @@ hardware_params = {
     # https://images.nvidia.com/aem-dam/Solutions/Data-Center/l4/nvidia-ada-gpu-architecture-whitepaper-v2.1.pdf
     # Ada SM has 256 KB Register File, and 128 KB of L1/Shared Memory
     "nvidia_L40": {"bandwidth": 864e9, "FP16": 181e12, "INT8": 362e12, "onchip_buffer": 36352e3},
+    # https://www.techpowerup.com/gpu-specs/geforce-rtx-4090.c3889
+    "nvidia_RTX4090": {"bandwidth": 1008e9, "FP16": 82.5e12, "INT8": 1321e12, "onchip_buffer": 72*1024*1024},
     # Intel Skylake-X (Skylake-X, Cascade Lake) Intel Xeon Phi (Knights Landing, Knights Mill) Intel Ice Lake, Tiger Lake and Rocket Lake
     # support AVX-512 & FMA (512-bit), they has throughput of 1 cycle
     # https://www.intel.com/content/www/us/en/products/sku/230496/intel-core-i913900k-processor-36m-cache-up-to-5-80-ghz/specifications.html
-    "nvidia_RTX4090": {"bandwidth": 1008e9, "FP16": 82.5e12, "INT8": 1321e12, "onchip_buffer": 72*1024*1024},
-    # https://www.techpowerup.com/gpu-specs/geforce-rtx-4090.c3889
     "intel_13900k": {"bandwidth": 89.6e9, "FP16": 8 * 5.4e9 * (512 / 16), "onchip_buffer": 36e6},
-    "intel_arc_b60": {"bandwidth": 456e9, "FP16": 57e12, "INT8": 197e12, "onchip_buffer": 18e6},
+    "intel_ARC_B60": {"bandwidth": 456e9, "FP16": 96e12, "INT8": 197e12, "onchip_buffer": 18e6},
     # https://www.intel.com/content/www/us/en/products/sku/243916/intel-arc-pro-b60-graphics/specifications.html
-    "intel_arc_b570": {"bandwidth": 380e9, "FP16": 100e12, "INT8": 203e12, "onchip_buffer": 13.5e6},
+    "intel_ARC_B570": {"bandwidth": 380e9, "FP16": 100e12, "INT8": 203e12, "onchip_buffer": 13.5e6},
     # https://www.intel.com/content/www/us/en/products/sku/241676/intel-arc-b570-graphics/specifications.html
+    "intel_CRI": {"bandwidth": 1536e9, "FP16": 450e12, "INT8": 900e12, "onchip_buffer": 24e6},
+    "intel_Ultra_155H iGPU": {"bandwidth": 5.6e9 * 8 * 2, "FP16": 9e12, "INT8": 18e12, "onchip_buffer": 16e6},
+    "intel_Ultra_225H iGPU": {"bandwidth": 6.4e9 * 8 * 2, "FP16": 31.5e12, "INT8": 63e12, "onchip_buffer": 24e6},
+    "intel_Ultra_255H iGPU": {"bandwidth": 6.4e9 * 8 * 2, "FP16": 37e12, "INT8": 74e12, "onchip_buffer": 24e6},
+    "intel_ARC_B390 (PTL iGPU)": {"bandwidth": 9.6e9 * 8 * 2, "FP16": 61e12, "INT8": 122e12, "onchip_buffer": 32e6},
 }
+
+
+available_model_ids = [_ for _ in available_model_ids_sources.keys()]
+available_hardwares = [_ for _ in hardware_params.keys()]
