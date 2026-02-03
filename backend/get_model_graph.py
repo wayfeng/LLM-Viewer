@@ -1,23 +1,9 @@
-import importlib
-import os
 import re
 import numpy as np
-from model_analyzer import ModelAnalyzer
+from model_analyzer import get_analyzer
 from utils import str_number
 from settings import available_model_ids_sources
 
-config_cache = {}
-
-
-def get_analyer(model_id, hardware, config_path) -> ModelAnalyzer:
-    config = f"{model_id}_{hardware}_{config_path}"
-    if config not in config_cache:
-        config_cache[config] = ModelAnalyzer(
-            model_id,
-            hardware,
-            config_path
-        )
-    return config_cache[config]
 
 def get_quant_bit(dtype):
     if dtype == "FP16":
@@ -45,7 +31,7 @@ def get_model_graph(model_id, hardware, config_path, inference_config):
     gen_length = int(inference_config["gen_length"])
     tp_size = int(inference_config["tp_size"])
 
-    analyzer = get_analyer(model_id, hardware, config_path)
+    analyzer = get_analyzer(model_id, hardware, config_path)
     result = analyzer.analyze(
         seqlen=seq_length,
         batchsize=batch_size,

@@ -51,12 +51,10 @@ def get_linear_layers(model_params, tp_size: int):
     intermediate_size=get_intermediate_size(model_params)
     key_value_heads=get_num_key_value_heads(model_params)
     attention_heads=get_num_attention_heads(model_params)
-    
     if tp_size > 1:
         assert hidden_size % tp_size == 0
         assert intermediate_size % tp_size == 0
         assert key_value_heads % tp_size == 0
-    
     return {
         "q_proj":[hidden_size, attention_heads * head_dim // tp_size],
         "k_proj":[hidden_size, key_value_heads * head_dim // tp_size],

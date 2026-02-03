@@ -9,7 +9,7 @@ def get_num_key_value_heads(model_params):
     return model_params["num_key_value_heads"]
 
 def get_norm_layers(model_params):
-    return ["attn_rmsnorm", "mlp_rmsnorm"]
+    return ["attn_norm", "mlp_norm"]
 
 def get_num_hidden_layers(model_params):
     return model_params["num_hidden_layers"]
