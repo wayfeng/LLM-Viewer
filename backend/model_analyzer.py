@@ -1,11 +1,11 @@
 import os
 import logging
 import importlib
-import json
 import math
 from hardwares import get_hardware_info
 from roofline_model import roofline_analyze
 from model_params import load_model_params
+from utils import str_number, str_number_time
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +161,37 @@ class ModelAnalyzer:
             "inference_time": inference_time,
         }
 
+    def save_csv(self, save_path=None):
+        if save_path is None:
+            save_path = f"output/{self.model_id[:self.model_id.rfind('/')]}"
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            save_path += f"{self.model_id[self.model_id.rfind('/'):]}"
+
+        decode_file_name = f"{save_path}_decode.csv"
+        prefill_file_name = f"{save_path}_prefill.csv"
+        print(f"save to {decode_file_name} and {prefill_file_name}")
+
+        for file_name, stage in [
+            (decode_file_name, "decode"),
+            (prefill_file_name, "prefill"),
+        ]:
+            with open(file_name, "a+") as f:
+
+                f.write(
+                    f"\n\n=== {self.model_id} {self.hardware} w_bit={self.w_bit} a_bit={self.a_bit} kv_bit={self.kv_bit} batchsize={self.batchsize} seqlen={self.seqlen} tp_size={self.tp_size} ===\n"
+                )
+                # legend
+                f.write(
+                    f"layer_name,OPs,Access,arithmetic_intensity,performance,bound,load_weight,load_act,store_act,load_kv_cache,store_kv_cache,inference_time\n"
+                )
+            with open(file_name, "a+") as f:
+                for layer_name, result in self.results[stage].items():
+                    f.write(
+                        f"{layer_name},{str_number(result['OPs'])},{str_number(result['memory_access'])}B,{str_number(result['arithmetic_intensity'])},{str_number(result['performance'])},"
+                        f"{result['bound']},{str_number(result['load_weight'])}B,{str_number(result['load_act'])}B,{str_number(result['store_act'])}B,{str_number(result['load_kv_cache'])}B,"
+                        f"{str_number(result['store_kv_cache'])}B,{str_number_time(result['inference_time'])}s\n"
+                    )
 
 class LLMAnalyzer(ModelAnalyzer):
     def __init__(self, model_id, hardware, model_params=None):

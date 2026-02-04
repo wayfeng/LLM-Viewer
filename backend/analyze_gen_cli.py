@@ -1,4 +1,4 @@
-from model_analyzer import ModelAnalyzer
+from model_analyzer import get_analyzer
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -24,7 +24,7 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-analyzer=ModelAnalyzer(args.model_id,args.hardware,args.config_file)
+analyzer=get_analyzer(args.model_id, args.hardware)
 ret = analyzer.analyze_generate_task(
     args.promptlen,
     args.seqlen,
