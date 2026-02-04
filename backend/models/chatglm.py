@@ -1,23 +1,23 @@
 def get_num_attention_heads(model_params):
-    return getattr(model_params, "num_attention_heads")
+    return model_params["num_attention_heads"]
 
 def get_hidden_size(model_params):
-    return getattr(model_params, "hidden_size")
+    return model_params["hidden_size"]
 
 def get_num_key_value_heads(model_params):
-    if getattr(model_params,"multi_query_attention"):
-        return getattr(model_params, "multi_query_group_num")
+    if model_params["multi_query_attention"]:
+        return model_params["multi_query_group_num"]
     else:
-        return getattr(model_params, "num_attention_heads")
+        return model_params["num_attention_heads"]
 
 def get_num_hidden_layers(model_params):
-    return getattr(model_params, "num_layers")
+    return model_params["num_layers"]
 
 def get_intermediate_size(model_params):
-    return getattr(model_params, "ffn_hidden_size")
+    return model_params["ffn_hidden_size"]
 
 def get_vocab_size(model_params):
-    return getattr(model_params, "padded_vocab_size")
+    return model_params["padded_vocab_size"]
 
 def get_norm_layers(model_params):
     return ["attn_norm", "mlp_norm"]

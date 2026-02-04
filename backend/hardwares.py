@@ -1,13 +1,3 @@
-
-available_model_ids_sources = {
-    "Qwen/Qwen3-4B-Instruct-2507": {"source": "file"},
-    "Qwen/Qwen3-32B": {"source": "file"},
-    "Qwen/Qwen3_moe-30B": {"source": "file"},
-    "meta-llama/Llama-2-7b-hf": {"source": "file"},
-    "meta-llama/Llama-2-13b-hf": {"source": "file"},
-    "meta-llama/Llama-2-70b-hf": {"source": "file"}
-}
-
 hardware_params = {
     # NOTICES: For GPU, we use Register File Size as on-chip buffer size
     # https://images.nvidia.com/content/volta-architecture/pdf/volta-architecture-whitepaper.pdf
@@ -54,5 +44,17 @@ hardware_params = {
 }
 
 
-available_model_ids = [_ for _ in available_model_ids_sources.keys()]
-available_hardwares = [_ for _ in hardware_params.keys()]
+def get_hardware_info(hardware: str, w_bit: int, a_bit: int, kv_bit: int):
+    if not hardware in hardware_params:
+        raise ValueError(f"Unsupported hardware:{hardware}")
+    bandwidth = hardware_params[hardware]["bandwidth"]
+    if w_bit <= 8 and a_bit <= 8 and kv_bit <= 8:
+        max_OPS = hardware_params[hardware]["INT8"]
+    else:
+        max_OPS = hardware_params[hardware]["FP16"]
+    onchip_buffer = hardware_params[hardware]["onchip_buffer"]
+    return bandwidth, max_OPS, onchip_buffer
+
+
+def get_available_hardwares():
+    return list(hardware_params.keys())

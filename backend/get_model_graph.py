@@ -1,8 +1,8 @@
 import re
 import numpy as np
+from hardwares import get_hardware_info
 from model_analyzer import get_analyzer
 from utils import str_number
-from settings import available_model_ids_sources
 
 
 def get_quant_bit(dtype):
@@ -19,8 +19,7 @@ def get_quant_bit(dtype):
         raise ValueError(f"Unsupported dtype:{dtype}")
 
 
-def get_model_graph(model_id, hardware, config_path, inference_config):
-
+def get_model_graph(model_id, hardware, inference_config):
     # Roofline model
     w_bit = get_quant_bit(inference_config["w_quant"])
     a_bit = get_quant_bit(inference_config["a_quant"])
@@ -31,7 +30,7 @@ def get_model_graph(model_id, hardware, config_path, inference_config):
     gen_length = int(inference_config["gen_length"])
     tp_size = int(inference_config["tp_size"])
 
-    analyzer = get_analyzer(model_id, hardware, config_path)
+    analyzer = get_analyzer(model_id, hardware)
     result = analyzer.analyze(
         seqlen=seq_length,
         batchsize=batch_size,
@@ -41,8 +40,8 @@ def get_model_graph(model_id, hardware, config_path, inference_config):
         use_flashattention=use_flashattention,
         tp_size=tp_size
     )
-    bandwidth, max_OPS, onchip_buffer = analyzer.get_hardware_info()
-    GQA = analyzer.get_model_info()["GQA"]
+    bandwidth, max_OPS, onchip_buffer = get_hardware_info(hardware, w_bit, a_bit, kv_bit)
+    GQA = analyzer.if_group_qa()
     hardware_info = {
         "bandwidth": bandwidth,
         "max_OPS": max_OPS,
@@ -72,9 +71,9 @@ def get_model_graph(model_id, hardware, config_path, inference_config):
             edges.append(edge)
 
     if use_flashattention:
-        layer_graph = analyzer.config.flashattention_transformer_layer_graph
+        layer_graph = analyzer.module.flashattention_transformer_layer_graph
     else:
-        layer_graph = analyzer.config.transformer_layer_graph
+        layer_graph = analyzer.module.transformer_layer_graph
     stage = inference_config["stage"]
     total_results = result["total_results"]
     if stage != "chat":

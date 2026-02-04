@@ -1,8 +1,10 @@
 from flask import Flask, request
 from flask_cors import CORS
 from get_model_graph import get_model_graph
-from settings import available_hardwares, available_model_ids
+from model_params import get_available_models
+from hardwares import get_available_hardwares
 import argparse
+import logging
 
 app = Flask(__name__)
 cors = CORS(app, resources={r"/*": {"origins": "*"}})
@@ -19,7 +21,6 @@ def get_graph():
     nodes, edges, total_results, hardware_info = get_model_graph(
         request.json["model_id"],
         request.json["hardware"],
-        None,
         inference_config,
     )
     return {
@@ -32,8 +33,8 @@ def get_graph():
 @app.route("/get_available", methods=["GET"])
 def get_available():
     return {
-        "available_hardwares": available_hardwares,
-        "available_model_ids": available_model_ids,
+        "available_hardwares": get_available_hardwares(),
+        "available_model_ids": get_available_models(),
     }
 
 if __name__ == "__main__":
@@ -41,6 +42,11 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--local", action="store_true")
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--loglevel", type=str, default="info")
     args=parser.parse_args()
+
+    logger_level = args.loglevel.upper()
+    logging.basicConfig(level=getattr(logging, logger_level))
+
     host="127.0.0.1" if args.local else "0.0.0.0"
     app.run(debug=args.debug,host=host,port=args.port)

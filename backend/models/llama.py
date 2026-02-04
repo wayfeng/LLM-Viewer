@@ -1,24 +1,24 @@
 
 def get_num_attention_heads(model_params):
-    return getattr(model_params, "num_attention_heads")
+    return model_params["num_attention_heads"]
 
 def get_hidden_size(model_params):
-    return getattr(model_params, "hidden_size")
+    return model_params["hidden_size"]
 
 def get_num_key_value_heads(model_params):
-    return getattr(model_params, "num_key_value_heads")
+    return model_params["num_key_value_heads"]
 
 def get_norm_layers(model_params):
     return ["attn_norm", "mlp_norm"]
 
 def get_num_hidden_layers(model_params):
-    return getattr(model_params, "num_hidden_layers")
+    return model_params["num_hidden_layers"]
 
 def get_intermediate_size(model_params):
-    return getattr(model_params, "intermediate_size")
+    return model_params["intermediate_size"]
 
 def get_vocab_size(model_params):
-    return getattr(model_params, "vocab_size")
+    return model_params["vocab_size"]
 
 def post_process(model_params,args):
     hiddensize=get_hidden_size(model_params)
