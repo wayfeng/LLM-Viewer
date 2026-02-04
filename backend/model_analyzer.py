@@ -182,14 +182,13 @@ class LLMAnalyzer(ModelAnalyzer):
         a_byte = self.a_bit / 8
         kv_byte = self.kv_bit / 8
 
-        config = self.module
         model_params = self.model_params
-        num_attention_heads = config.get_num_attention_heads(model_params)
-        hidden_size = config.get_hidden_size(model_params)
-        num_key_value_heads = config.get_num_key_value_heads(model_params)
-        num_hidden_layers = config.get_num_hidden_layers(model_params)
+        num_attention_heads = self.module.get_num_attention_heads(model_params)
+        hidden_size = self.module.get_hidden_size(model_params)
+        num_key_value_heads = self.module.get_num_key_value_heads(model_params)
+        num_hidden_layers = self.module.get_num_hidden_layers(model_params)
 
-        for name, (ic, oc) in config.get_linear_layers(model_params, tp_size).items():
+        for name, (ic, oc) in self.module.get_linear_layers(model_params, tp_size).items():
             # for linear layers
             is_kv_proj = name in ["k_proj", "v_proj"]
             is_normal_proj = not is_kv_proj
@@ -284,7 +283,7 @@ class LLMAnalyzer(ModelAnalyzer):
                 store_kv_cache=0,
             )
 
-        for name in config.get_norm_layers(model_params):
+        for name in self.module.get_norm_layers(model_params):
             # sum sub pow sum div mul add
             if "rmsnorm" in name:
                 norm_OPs = batchsize * hidden_size * 1 * 4
@@ -381,7 +380,7 @@ class LLMAnalyzer(ModelAnalyzer):
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
-        for name in config.get_norm_layers(model_params):
+        for name in self.module.get_norm_layers(model_params):
             if "rmsnorm" in name:
                 norm_OPs = batchsize * hidden_size * seqlen * 4
             else:
@@ -481,15 +480,13 @@ class MoEAnalyzer(ModelAnalyzer):
         a_byte = self.a_bit / 8
         kv_byte = self.kv_bit / 8
 
-        config = self.module
         model_params = self.model_params
-        num_attention_heads = config.get_num_attention_heads(model_params)
-        hidden_size = config.get_hidden_size(model_params)
-        num_key_value_heads = config.get_num_key_value_heads(model_params)
-        num_hidden_layers = config.get_num_hidden_layers(model_params)
-        num_active_experts = config.get_num_active_experts(model_params)
-
-        for name, (ic, oc) in config.get_linear_layers(model_params, tp_size).items():
+        num_attention_heads = self.module.get_num_attention_heads(model_params)
+        hidden_size = self.module.get_hidden_size(model_params)
+        num_key_value_heads = self.module.get_num_key_value_heads(model_params)
+        num_hidden_layers = self.module.get_num_hidden_layers(model_params)
+        num_active_experts = self.module.get_num_active_experts(model_params)
+        for name, (ic, oc) in self.module.get_linear_layers(model_params, tp_size).items():
             # for linear layers
             is_kv_proj = name in ["k_proj", "v_proj"]
             is_normal_proj = not is_kv_proj
@@ -608,7 +605,7 @@ class MoEAnalyzer(ModelAnalyzer):
                 store_kv_cache=0,
             )
 
-        for name in config.get_norm_layers(model_params):
+        for name in self.module.get_norm_layers(model_params):
             # sum sub pow sum div mul add
             if "rmsnorm" in name:
                 norm_OPs = batchsize * hidden_size * 1 * 4
@@ -705,7 +702,7 @@ class MoEAnalyzer(ModelAnalyzer):
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
-        for name in config.get_norm_layers(model_params):
+        for name in self.module.get_norm_layers(model_params):
             if "rmsnorm" in name:
                 norm_OPs = batchsize * hidden_size * seqlen * 4
             else:
