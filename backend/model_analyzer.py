@@ -516,7 +516,7 @@ class MoEAnalyzer(ModelAnalyzer):
         hidden_size = self.module.get_hidden_size(model_params)
         num_key_value_heads = self.module.get_num_key_value_heads(model_params)
         num_hidden_layers = self.module.get_num_hidden_layers(model_params)
-        num_active_experts = self.module.get_num_active_experts(model_params)
+        num_active_experts = self.module.get_num_active_experts(model_params) // tp_size
         for name, (ic, oc) in self.module.get_linear_layers(model_params, tp_size).items():
             # for linear layers
             is_kv_proj = name in ["k_proj", "v_proj"]
