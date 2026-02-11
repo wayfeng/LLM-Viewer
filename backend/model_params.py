@@ -10,9 +10,13 @@ available_model_ids_sources = {
     "Qwen/Qwen3-4B-Instruct-2507": {"source": "huggingface"},
     "Qwen/Qwen3-32B": {"source": "huggingface"},
     "Qwen/Qwen3-30B-A3B-Instruct-2507": {"source": "huggingface"},
+    "Qwen/Qwen3-Coder-30B-A3B-Instruct": {"source": "huggingface"},
+    "openai/gpt-oss-20b": {"source": "huggingface"},
+    "openai/gpt-oss-120b": {"source": "huggingface"},
     "LLM-Research/llama-2-7b": {"source": "modelscope"},
     "LLM-Research/llama-2-13b": {"source": "modelscope"},
     "zai-org/chatglm3-6b": {"source": "huggingface"},
+    "deepseek-ai/DeepSeek-R1-Distill-Llama-70B": {"source": "huggingface"},
 }
 
 def get_available_models():

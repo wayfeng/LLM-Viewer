@@ -23,7 +23,7 @@ ALL_DATA_NAMES = [
 
 MODEL_ANALYZER_REGISTRY = {
     "LLMAnalyzer": ["qwen3", "qwen2", "qwen2_5", "llama", "chatglm"],
-    "MoEAnalyzer": ["qwen3_moe", "qwen2_moe", "qwen2_5_moe"],
+    "MoEAnalyzer": ["qwen3_moe", "qwen2_moe", "qwen2_5_moe", "gpt_oss"],
     "VLMAnalyzer": ["qwen3_vl", "qwen2_vl", "qwen2_5_vl"],
 }
 
@@ -232,7 +232,7 @@ class LLMAnalyzer(ModelAnalyzer):
                 load_act=ic * batchsize * a_byte,
                 store_act=0 if is_kv_proj else oc * batchsize * a_byte,
                 load_kv_cache=0,
-                store_kv_cache=(0 if is_normal_proj else oc * batchsize * kv_byte),
+                store_kv_cache=0 if is_normal_proj else oc * batchsize * kv_byte,
             )
             # for prefill
             self._analyze_to_results(
@@ -241,39 +241,39 @@ class LLMAnalyzer(ModelAnalyzer):
                 OPs=ic * oc * batchsize * seqlen * 2,
                 load_weight=ic * oc * w_byte,
                 load_act=ic * batchsize * seqlen * a_byte,
-                store_act=(0 if is_kv_proj else oc * batchsize * seqlen * a_byte),
+                store_act=0 if is_kv_proj else oc * batchsize * seqlen * a_byte,
                 load_kv_cache=0,
-                store_kv_cache=(0 if is_normal_proj else oc * batchsize * seqlen * kv_byte),
+                store_kv_cache=0 if is_normal_proj else oc * batchsize * seqlen * kv_byte,
             )
 
         # for attention
         head_size = hidden_size // num_attention_heads
         # for decode
-        qk_matmul_OPs = seqlen * head_size * num_attention_heads * batchsize * 2
-        sv_matmul_OPs = 1 * head_size * seqlen * num_attention_heads * batchsize * 2
+        qk_matmul_OPs = seqlen * head_size * num_attention_heads * batchsize * 2 // tp_size
+        sv_matmul_OPs = 1 * head_size * seqlen * num_attention_heads * batchsize * 2 // tp_size
         # the softmax operation takes five steps:
         # max_x=max(x)
         # x=x-max_x
         # x_exp=exp(x)
         # sum_x_exp=sum(x_exp)
         # y=x_exp/sum(x_exp)
-        softmax_OPs = batchsize * num_attention_heads * seqlen * 1 * 5
+        softmax_OPs = batchsize * num_attention_heads * seqlen * 1 * 5 // tp_size
         if use_flashattention:
             name = f"fused_attention"
             bandwidth, max_OPS, onchip_buffer = get_hardware_info(self.hardware, self.w_bit, self.a_bit, self.kv_bit)
             # flashattention-2 https://arxiv.org/pdf/2307.08691.pdf
             block_size_r = min(math.ceil(onchip_buffer / (kv_byte * head_size)), head_size)
             n_blocks_r = math.ceil(1 / block_size_r)
-            q_numel = (1) * head_size * batchsize * num_attention_heads * a_byte
-            o_numel = 1 * seqlen * batchsize * num_attention_heads * a_byte
+            q_numel = 1 * head_size * batchsize * num_attention_heads * a_byte // tp_size
+            o_numel = 1 * seqlen * batchsize * num_attention_heads * a_byte // tp_size
             self._analyze_to_results(
                 "decode",
                 name,
                 OPs=qk_matmul_OPs + sv_matmul_OPs + softmax_OPs,
                 load_weight=0,
                 load_act=q_numel,
-                store_act=o_numel * 2,  # initialize O and save O
-                load_kv_cache=n_blocks_r * (seqlen) * head_size * batchsize * num_key_value_heads * kv_byte * 2,
+                store_act=o_numel * 2, # initialize 0 and save 0
+                load_kv_cache=n_blocks_r * (seqlen) * head_size * batchsize * num_key_value_heads * kv_byte * 2 // tp_size,
                 store_kv_cache=0,
             )
 
@@ -284,9 +284,9 @@ class LLMAnalyzer(ModelAnalyzer):
                 name,
                 OPs=qk_matmul_OPs,
                 load_weight=0,
-                load_act=(1) * head_size * batchsize * num_attention_heads * a_byte,
-                store_act=1 * seqlen * batchsize * num_attention_heads * a_byte,
-                load_kv_cache=(seqlen) * head_size * batchsize * num_key_value_heads * kv_byte,
+                load_act=1 * head_size * batchsize * num_attention_heads * a_byte // tp_size,
+                store_act=1 * seqlen * batchsize * num_attention_heads * a_byte // tp_size,
+                load_kv_cache=seqlen * head_size * batchsize * num_key_value_heads * kv_byte // tp_size,
                 store_kv_cache=0,
             )
             name = f"sv_matmul"
@@ -295,9 +295,9 @@ class LLMAnalyzer(ModelAnalyzer):
                 name,
                 OPs=sv_matmul_OPs,
                 load_weight=0,
-                load_act=(1 * seqlen * batchsize * num_attention_heads) * a_byte,
-                store_act=1 * head_size * batchsize * num_attention_heads * a_byte,
-                load_kv_cache=(seqlen * head_size * batchsize * num_key_value_heads) * kv_byte,
+                load_act=1 * seqlen * batchsize * num_attention_heads * a_byte // tp_size,
+                store_act=1 * head_size * batchsize * num_attention_heads * a_byte // tp_size,
+                load_kv_cache=seqlen * head_size * batchsize * num_key_value_heads * kv_byte // tp_size,
                 store_kv_cache=0,
             )
 
@@ -308,8 +308,8 @@ class LLMAnalyzer(ModelAnalyzer):
                 name,
                 OPs=softmax_OPs,
                 load_weight=0,
-                load_act=batchsize * num_attention_heads * seqlen * 1 * a_byte,
-                store_act=batchsize * num_attention_heads * seqlen * 1 * a_byte,
+                load_act=batchsize * num_attention_heads * seqlen * 1 * a_byte // tp_size,
+                store_act=batchsize * num_attention_heads * seqlen * 1 * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -317,9 +317,9 @@ class LLMAnalyzer(ModelAnalyzer):
         for name in self.module.get_norm_layers(model_params):
             # sum sub pow sum div mul add
             if "rmsnorm" in name:
-                norm_OPs = batchsize * hidden_size * 1 * 4
+                norm_OPs = batchsize * hidden_size * 1 * 4 // tp_size
             else:
-                norm_OPs = batchsize * hidden_size * 1 * 7
+                norm_OPs = batchsize * hidden_size * 1 * 7 // tp_size
 
             self._analyze_to_results(
                 "decode",
@@ -338,8 +338,8 @@ class LLMAnalyzer(ModelAnalyzer):
                 name,
                 OPs=batchsize * hidden_size * 1,
                 load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte,
-                store_act=batchsize * hidden_size * 1 * a_byte,
+                load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+                store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -347,26 +347,26 @@ class LLMAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "decode",
                 name,
-                OPs=batchsize * hidden_size * 1 * 5,
+                OPs=batchsize * hidden_size * 1 * 5 // tp_size,
                 load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte,
-                store_act=batchsize * hidden_size * 1 * a_byte,
+                load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+                store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
 
         # for prefill
-        qk_matmul_OPs = seqlen * seqlen * head_size * num_attention_heads * batchsize * 2
-        sv_matmul_OPs = seqlen * head_size * seqlen * num_attention_heads * batchsize * 2
-        softmax_OPs = batchsize * num_attention_heads * seqlen * seqlen * 5
+        qk_matmul_OPs = seqlen * seqlen * head_size * num_attention_heads * batchsize * 2 // tp_size
+        sv_matmul_OPs = seqlen * head_size * seqlen * num_attention_heads * batchsize * 2 // tp_size
+        softmax_OPs = batchsize * num_attention_heads * seqlen * seqlen * 5 // tp_size
         if use_flashattention:
             name = f"fused_attention"
             bandwidth, max_OPS, onchip_buffer = get_hardware_info(self.hardware, self.w_bit, self.a_bit, self.kv_bit)
             # flashattention-2 https://arxiv.org/pdf/2307.08691.pdf
             block_size_r = min(math.ceil(onchip_buffer / (kv_byte * head_size)), head_size)
             n_blocks_r = math.ceil(seqlen / block_size_r)
-            q_numel = seqlen * head_size * batchsize * num_attention_heads * a_byte
-            o_numel = seqlen * seqlen * batchsize * num_attention_heads * a_byte
+            q_numel = seqlen * head_size * batchsize * num_attention_heads * a_byte // tp_size
+            o_numel = seqlen * seqlen * batchsize * num_attention_heads * a_byte // tp_size
             self._analyze_to_results(
                 "prefill",
                 name,
@@ -374,7 +374,7 @@ class LLMAnalyzer(ModelAnalyzer):
                 load_weight=0,
                 load_act=q_numel,
                 store_act=o_numel * 2,  # initialize O and save O
-                load_kv_cache=n_blocks_r * (seqlen) * head_size * batchsize * num_key_value_heads * kv_byte * 2,
+                load_kv_cache=n_blocks_r * seqlen * head_size * batchsize * num_key_value_heads * kv_byte * 2 // tp_size,
                 store_kv_cache=0,
             )
         else:
@@ -384,9 +384,9 @@ class LLMAnalyzer(ModelAnalyzer):
                 name,
                 OPs=qk_matmul_OPs,
                 load_weight=0,
-                load_act=seqlen * head_size * batchsize * num_key_value_heads * a_byte,
-                store_act=seqlen * seqlen * batchsize * num_attention_heads * a_byte,
-                load_kv_cache=seqlen * head_size * batchsize * num_key_value_heads * kv_byte,
+                load_act=seqlen * head_size * batchsize * num_key_value_heads * a_byte // tp_size,
+                store_act=seqlen * seqlen * batchsize * num_attention_heads * a_byte // tp_size,
+                load_kv_cache=seqlen * head_size * batchsize * num_key_value_heads * kv_byte // tp_size,
                 store_kv_cache=0,
             )
             name = f"sv_matmul"
@@ -395,9 +395,9 @@ class LLMAnalyzer(ModelAnalyzer):
                 name,
                 OPs=sv_matmul_OPs,
                 load_weight=0,
-                load_act=seqlen * seqlen * batchsize * num_attention_heads * a_byte,
-                store_act=seqlen * head_size * batchsize * num_attention_heads * a_byte,
-                load_kv_cache=seqlen * head_size * batchsize * num_key_value_heads * kv_byte,
+                load_act=seqlen * seqlen * batchsize * num_attention_heads * a_byte // tp_size,
+                store_act=seqlen * head_size * batchsize * num_attention_heads * a_byte // tp_size,
+                load_kv_cache=seqlen * head_size * batchsize * num_key_value_heads * kv_byte // tp_size,
                 store_kv_cache=0,
             )
             name = f"softmax"
@@ -406,24 +406,24 @@ class LLMAnalyzer(ModelAnalyzer):
                 name,
                 OPs=softmax_OPs,
                 load_weight=0,
-                load_act=batchsize * num_attention_heads * seqlen * seqlen * a_byte,
-                store_act=batchsize * num_attention_heads * seqlen * seqlen * a_byte,
+                load_act=batchsize * num_attention_heads * seqlen * seqlen * a_byte // tp_size,
+                store_act=batchsize * num_attention_heads * seqlen * seqlen * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
         for name in self.module.get_norm_layers(model_params):
             if "rmsnorm" in name:
-                norm_OPs = batchsize * hidden_size * seqlen * 4
+                norm_OPs = batchsize * hidden_size * seqlen * 4 // tp_size
             else:
-                norm_OPs = batchsize * hidden_size * seqlen * 7
+                norm_OPs = batchsize * hidden_size * seqlen * 7 // tp_size
 
             self._analyze_to_results(
                 "prefill",
                 name,
                 OPs=norm_OPs,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte,
-                store_act=batchsize * hidden_size * seqlen * a_byte,
+                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -431,10 +431,10 @@ class LLMAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "prefill",
                 name,
-                OPs=batchsize * hidden_size * seqlen * 1,
+                OPs=batchsize * hidden_size * seqlen * 1 // tp_size,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte,
-                store_act=batchsize * hidden_size * seqlen * a_byte,
+                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -442,10 +442,10 @@ class LLMAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "prefill",
                 name,
-                OPs=batchsize * hidden_size * seqlen * 1 * 5,
+                OPs=batchsize * hidden_size * seqlen * 1 * 5 // tp_size,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte,
-                store_act=batchsize * hidden_size * seqlen * a_byte,
+                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -554,7 +554,7 @@ class MoEAnalyzer(ModelAnalyzer):
                     load_act=ic * batchsize * a_byte,
                     store_act=0 if is_kv_proj else oc * batchsize * a_byte,
                     load_kv_cache=0,
-                    store_kv_cache=(0 if is_normal_proj else oc * batchsize * kv_byte),
+                    store_kv_cache=0 if is_normal_proj else oc * batchsize * kv_byte,
                 )
                 # for prefill
                 self._analyze_to_results(
@@ -563,23 +563,23 @@ class MoEAnalyzer(ModelAnalyzer):
                     OPs=ic * oc * batchsize * seqlen * 2,
                     load_weight=ic * oc * w_byte,
                     load_act=ic * batchsize * seqlen * a_byte,
-                    store_act=(0 if is_kv_proj else oc * batchsize * seqlen * a_byte),
+                    store_act=0 if is_kv_proj else oc * batchsize * seqlen * a_byte,
                     load_kv_cache=0,
-                    store_kv_cache=(0 if is_normal_proj else oc * batchsize * seqlen * kv_byte),
+                    store_kv_cache=0 if is_normal_proj else oc * batchsize * seqlen * kv_byte,
                 )
 
         # for attention
         head_size = hidden_size // num_attention_heads
         # for decode
-        qk_matmul_OPs = seqlen * head_size * num_attention_heads * batchsize * 2
-        sv_matmul_OPs = 1 * head_size * seqlen * num_attention_heads * batchsize * 2
+        qk_matmul_OPs = seqlen * head_size * num_attention_heads * batchsize * 2 // tp_size
+        sv_matmul_OPs = 1 * head_size * seqlen * num_attention_heads * batchsize * 2 // tp_size
         # the softmax operation takes five steps:
         # max_x=max(x)
         # x=x-max_x
         # x_exp=exp(x)
         # sum_x_exp=sum(x_exp)
         # y=x_exp/sum(x_exp)
-        softmax_OPs = batchsize * num_attention_heads * seqlen * 1 * 5
+        softmax_OPs = batchsize * num_attention_heads * seqlen * 1 * 5 // tp_size
         if use_flashattention:
             name = f"fused_attention"
             bandwidth, max_OPS, onchip_buffer = get_hardware_info(self.hardware, self.w_bit, self.a_bit, self.kv_bit)
@@ -593,9 +593,9 @@ class MoEAnalyzer(ModelAnalyzer):
                 name,
                 OPs=qk_matmul_OPs + sv_matmul_OPs + softmax_OPs,
                 load_weight=0,
-                load_act=q_numel,
-                store_act=o_numel * 2,  # initialize O and save O
-                load_kv_cache=n_blocks_r * (seqlen) * head_size * batchsize * num_key_value_heads * kv_byte * 2,
+                load_act=q_numel // tp_size,
+                store_act=o_numel * 2 // tp_size,  # initialize O and save O
+                load_kv_cache=n_blocks_r * seqlen * head_size * batchsize * num_key_value_heads * kv_byte * 2 // tp_size,
                 store_kv_cache=0,
             )
 
@@ -606,9 +606,9 @@ class MoEAnalyzer(ModelAnalyzer):
                 name,
                 OPs=qk_matmul_OPs,
                 load_weight=0,
-                load_act=(1) * head_size * batchsize * num_attention_heads * a_byte,
-                store_act=1 * seqlen * batchsize * num_attention_heads * a_byte,
-                load_kv_cache=(seqlen) * head_size * batchsize * num_key_value_heads * kv_byte,
+                load_act=1 * head_size * batchsize * num_attention_heads * a_byte // tp_size,
+                store_act=1 * seqlen * batchsize * num_attention_heads * a_byte // tp_size,
+                load_kv_cache=seqlen * head_size * batchsize * num_key_value_heads * kv_byte // tp_size,
                 store_kv_cache=0,
             )
             name = f"sv_matmul"
@@ -617,9 +617,9 @@ class MoEAnalyzer(ModelAnalyzer):
                 name,
                 OPs=sv_matmul_OPs,
                 load_weight=0,
-                load_act=(1 * seqlen * batchsize * num_attention_heads) * a_byte,
-                store_act=1 * head_size * batchsize * num_attention_heads * a_byte,
-                load_kv_cache=(seqlen * head_size * batchsize * num_key_value_heads) * kv_byte,
+                load_act=1 * seqlen * batchsize * num_attention_heads * a_byte // tp_size,
+                store_act=1 * head_size * batchsize * num_attention_heads * a_byte // tp_size,
+                load_kv_cache=seqlen * head_size * batchsize * num_key_value_heads * kv_byte // tp_size,
                 store_kv_cache=0,
             )
 
@@ -630,8 +630,8 @@ class MoEAnalyzer(ModelAnalyzer):
                 name,
                 OPs=softmax_OPs,
                 load_weight=0,
-                load_act=batchsize * num_attention_heads * seqlen * 1 * a_byte,
-                store_act=batchsize * num_attention_heads * seqlen * 1 * a_byte,
+                load_act=batchsize * num_attention_heads * seqlen * 1 * a_byte // tp_size,
+                store_act=batchsize * num_attention_heads * seqlen * 1 * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -639,17 +639,17 @@ class MoEAnalyzer(ModelAnalyzer):
         for name in self.module.get_norm_layers(model_params):
             # sum sub pow sum div mul add
             if "rmsnorm" in name:
-                norm_OPs = batchsize * hidden_size * 1 * 4
+                norm_OPs = batchsize * hidden_size * 1 * 4 // tp_size
             else:
-                norm_OPs = batchsize * hidden_size * 1 * 7
+                norm_OPs = batchsize * hidden_size * 1 * 7 // tp_size
 
             self._analyze_to_results(
                 "decode",
                 name,
                 OPs=norm_OPs,
                 load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte,
-                store_act=batchsize * hidden_size * 1 * a_byte,
+                load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+                store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -658,10 +658,10 @@ class MoEAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "decode",
                 name,
-                OPs=batchsize * hidden_size * 1,
+                OPs=batchsize * hidden_size * 1 // tp_size,
                 load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte,
-                store_act=batchsize * hidden_size * 1 * a_byte,
+                load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+                store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -678,9 +678,9 @@ class MoEAnalyzer(ModelAnalyzer):
             )
 
         # for prefill
-        qk_matmul_OPs = seqlen * seqlen * head_size * num_attention_heads * batchsize * 2
-        sv_matmul_OPs = seqlen * head_size * seqlen * num_attention_heads * batchsize * 2
-        softmax_OPs = batchsize * num_attention_heads * seqlen * seqlen * 5
+        qk_matmul_OPs = seqlen * seqlen * head_size * num_attention_heads * batchsize * 2 // tp_size
+        sv_matmul_OPs = seqlen * head_size * seqlen * num_attention_heads * batchsize * 2 // tp_size
+        softmax_OPs = batchsize * num_attention_heads * seqlen * seqlen * 5 // tp_size
         if use_flashattention:
             name = f"fused_attention"
             bandwidth, max_OPS, onchip_buffer = get_hardware_info(self.hardware, self.w_bit, self.a_bit, self.kv_bit)
@@ -694,9 +694,9 @@ class MoEAnalyzer(ModelAnalyzer):
                 name,
                 OPs=qk_matmul_OPs + sv_matmul_OPs + softmax_OPs,
                 load_weight=0,
-                load_act=q_numel,
-                store_act=o_numel * 2,  # initialize O and save O
-                load_kv_cache=n_blocks_r * (seqlen) * head_size * batchsize * num_key_value_heads * kv_byte * 2,
+                load_act=q_numel // tp_size,
+                store_act=o_numel * 2 // tp_size,  # initialize O and save O
+                load_kv_cache=n_blocks_r * seqlen * head_size * batchsize * num_key_value_heads * kv_byte * 2 // tp_size,
                 store_kv_cache=0,
             )
         else:
@@ -706,9 +706,9 @@ class MoEAnalyzer(ModelAnalyzer):
                 name,
                 OPs=qk_matmul_OPs,
                 load_weight=0,
-                load_act=seqlen * head_size * batchsize * num_key_value_heads * a_byte,
-                store_act=seqlen * seqlen * batchsize * num_attention_heads * a_byte,
-                load_kv_cache=seqlen * head_size * batchsize * num_key_value_heads * kv_byte,
+                load_act=seqlen * head_size * batchsize * num_key_value_heads * a_byte // tp_size,
+                store_act=seqlen * seqlen * batchsize * num_attention_heads * a_byte // tp_size,
+                load_kv_cache=seqlen * head_size * batchsize * num_key_value_heads * kv_byte // tp_size,
                 store_kv_cache=0,
             )
             name = f"sv_matmul"
@@ -717,9 +717,9 @@ class MoEAnalyzer(ModelAnalyzer):
                 name,
                 OPs=sv_matmul_OPs,
                 load_weight=0,
-                load_act=seqlen * seqlen * batchsize * num_attention_heads * a_byte,
-                store_act=seqlen * head_size * batchsize * num_attention_heads * a_byte,
-                load_kv_cache=seqlen * head_size * batchsize * num_key_value_heads * kv_byte,
+                load_act=seqlen * seqlen * batchsize * num_attention_heads * a_byte // tp_size,
+                store_act=seqlen * head_size * batchsize * num_attention_heads * a_byte // tp_size,
+                load_kv_cache=seqlen * head_size * batchsize * num_key_value_heads * kv_byte // tp_size,
                 store_kv_cache=0,
             )
             name = f"softmax"
@@ -728,24 +728,24 @@ class MoEAnalyzer(ModelAnalyzer):
                 name,
                 OPs=softmax_OPs,
                 load_weight=0,
-                load_act=batchsize * num_attention_heads * seqlen * seqlen * a_byte,
-                store_act=batchsize * num_attention_heads * seqlen * seqlen * a_byte,
+                load_act=batchsize * num_attention_heads * seqlen * seqlen * a_byte // tp_size,
+                store_act=batchsize * num_attention_heads * seqlen * seqlen * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
         for name in self.module.get_norm_layers(model_params):
             if "rmsnorm" in name:
-                norm_OPs = batchsize * hidden_size * seqlen * 4
+                norm_OPs = batchsize * hidden_size * seqlen * 4 // tp_size
             else:
-                norm_OPs = batchsize * hidden_size * seqlen * 7
+                norm_OPs = batchsize * hidden_size * seqlen * 7 // tp_size
 
             self._analyze_to_results(
                 "prefill",
                 name,
                 OPs=norm_OPs,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte,
-                store_act=batchsize * hidden_size * seqlen * a_byte,
+                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -753,10 +753,10 @@ class MoEAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "prefill",
                 name,
-                OPs=batchsize * hidden_size * seqlen * 1,
+                OPs=batchsize * hidden_size * seqlen * 1 // tp_size,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte,
-                store_act=batchsize * hidden_size * seqlen * a_byte,
+                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )

@@ -21,7 +21,7 @@ def get_vocab_size(model_params):
     return model_params["vocab_size"]
 
 def get_num_experts(model_params):
-    return model_params["num_experts"]
+    return model_params["num_local_experts"]
 
 def get_num_active_experts(model_params):
     return model_params["num_experts_per_tok"]
@@ -30,7 +30,6 @@ def post_process(model_params,args):
     hiddensize=get_hidden_size(model_params)
     vocab_size=get_vocab_size(model_params)
     layers=[]
-
     layers.append({
         'name': 'lm_head',
         'stage': "prefill",
@@ -39,7 +38,6 @@ def post_process(model_params,args):
         'load_act': args['batchsize'] * args['seqlen'] * hiddensize * args['a_byte'],
         'store_act': args['batchsize'] * args['seqlen'] * vocab_size * args['a_byte'],
     })
-
     layers.append({
         'name': 'lm_head',
         'stage': "decode",
@@ -61,7 +59,6 @@ def get_linear_layers(model_params, tp_size: int):
         assert hidden_size % tp_size == 0
         assert intermediate_size % tp_size == 0
         assert key_value_heads % tp_size == 0
-    
     return {
         "q_proj":[hidden_size, hidden_size // tp_size],
         "k_proj":[hidden_size, hidden_size * key_value_heads // attention_heads // tp_size],
