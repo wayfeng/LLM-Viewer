@@ -317,10 +317,9 @@ class LLMAnalyzer(ModelAnalyzer):
         for name in self.module.get_norm_layers(model_params):
             # sum sub pow sum div mul add
             if "rmsnorm" in name:
-                norm_OPs = batchsize * hidden_size * 1 * 4 // tp_size
+                norm_OPs = batchsize * hidden_size * 1 * 4
             else:
-                norm_OPs = batchsize * hidden_size * 1 * 7 // tp_size
-
+                norm_OPs = batchsize * hidden_size * 1 * 7
             self._analyze_to_results(
                 "decode",
                 name,
@@ -338,8 +337,8 @@ class LLMAnalyzer(ModelAnalyzer):
                 name,
                 OPs=batchsize * hidden_size * 1,
                 load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
-                store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+                load_act=batchsize * hidden_size * 1 * a_byte,
+                store_act=batchsize * hidden_size * 1 * a_byte,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -347,10 +346,10 @@ class LLMAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "decode",
                 name,
-                OPs=batchsize * hidden_size * 1 * 5 // tp_size,
+                OPs=batchsize * hidden_size * 1 * 5,
                 load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
-                store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+                load_act=batchsize * hidden_size * 1 * a_byte,
+                store_act=batchsize * hidden_size * 1 * a_byte,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -413,17 +412,17 @@ class LLMAnalyzer(ModelAnalyzer):
             )
         for name in self.module.get_norm_layers(model_params):
             if "rmsnorm" in name:
-                norm_OPs = batchsize * hidden_size * seqlen * 4 // tp_size
+                norm_OPs = batchsize * hidden_size * seqlen * 4
             else:
-                norm_OPs = batchsize * hidden_size * seqlen * 7 // tp_size
+                norm_OPs = batchsize * hidden_size * seqlen * 7
 
             self._analyze_to_results(
                 "prefill",
                 name,
                 OPs=norm_OPs,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
-                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                load_act=batchsize * hidden_size * seqlen * a_byte,
+                store_act=batchsize * hidden_size * seqlen * a_byte,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -431,10 +430,10 @@ class LLMAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "prefill",
                 name,
-                OPs=batchsize * hidden_size * seqlen * 1 // tp_size,
+                OPs=batchsize * hidden_size * seqlen * 1,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
-                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                load_act=batchsize * hidden_size * seqlen * a_byte,
+                store_act=batchsize * hidden_size * seqlen * a_byte,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -442,10 +441,10 @@ class LLMAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "prefill",
                 name,
-                OPs=batchsize * hidden_size * seqlen * 1 * 5 // tp_size,
+                OPs=batchsize * hidden_size * seqlen * 1 * 5 ,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
-                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                load_act=batchsize * hidden_size * seqlen * a_byte,
+                store_act=batchsize * hidden_size * seqlen * a_byte,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -639,17 +638,17 @@ class MoEAnalyzer(ModelAnalyzer):
         for name in self.module.get_norm_layers(model_params):
             # sum sub pow sum div mul add
             if "rmsnorm" in name:
-                norm_OPs = batchsize * hidden_size * 1 * 4 // tp_size
+                norm_OPs = batchsize * hidden_size * 1 * 4
             else:
-                norm_OPs = batchsize * hidden_size * 1 * 7 // tp_size
+                norm_OPs = batchsize * hidden_size * 1 * 7
 
             self._analyze_to_results(
                 "decode",
                 name,
                 OPs=norm_OPs,
                 load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
-                store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+                load_act=batchsize * hidden_size * 1 * a_byte,
+                store_act=batchsize * hidden_size * 1 * a_byte,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -658,10 +657,10 @@ class MoEAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "decode",
                 name,
-                OPs=batchsize * hidden_size * 1 // tp_size,
+                OPs=batchsize * hidden_size * 1,
                 load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
-                store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+                load_act=batchsize * hidden_size * 1 * a_byte,
+                store_act=batchsize * hidden_size * 1 * a_byte,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -735,17 +734,17 @@ class MoEAnalyzer(ModelAnalyzer):
             )
         for name in self.module.get_norm_layers(model_params):
             if "rmsnorm" in name:
-                norm_OPs = batchsize * hidden_size * seqlen * 4 // tp_size
+                norm_OPs = batchsize * hidden_size * seqlen * 4
             else:
-                norm_OPs = batchsize * hidden_size * seqlen * 7 // tp_size
+                norm_OPs = batchsize * hidden_size * seqlen * 7
 
             self._analyze_to_results(
                 "prefill",
                 name,
                 OPs=norm_OPs,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
-                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                load_act=batchsize * hidden_size * seqlen * a_byte,
+                store_act=batchsize * hidden_size * seqlen * a_byte,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -753,10 +752,10 @@ class MoEAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "prefill",
                 name,
-                OPs=batchsize * hidden_size * seqlen * 1 // tp_size,
+                OPs=batchsize * hidden_size * seqlen * 1,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
-                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                load_act=batchsize * hidden_size * seqlen * a_byte,
+                store_act=batchsize * hidden_size * seqlen * a_byte,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
