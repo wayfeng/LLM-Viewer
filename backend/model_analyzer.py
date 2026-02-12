@@ -337,8 +337,8 @@ class LLMAnalyzer(ModelAnalyzer):
                 name,
                 OPs=batchsize * hidden_size * 1,
                 load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte,
-                store_act=batchsize * hidden_size * 1 * a_byte,
+                load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+                store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -346,10 +346,10 @@ class LLMAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "decode",
                 name,
-                OPs=batchsize * hidden_size * 1 * 5,
+                OPs=batchsize * hidden_size * 1 * 5 // tp_size,
                 load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte,
-                store_act=batchsize * hidden_size * 1 * a_byte,
+                load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+                store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -430,10 +430,10 @@ class LLMAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "prefill",
                 name,
-                OPs=batchsize * hidden_size * seqlen * 1,
+                OPs=batchsize * hidden_size * seqlen * 1 // tp_size,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte,
-                store_act=batchsize * hidden_size * seqlen * a_byte,
+                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -441,10 +441,10 @@ class LLMAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "prefill",
                 name,
-                OPs=batchsize * hidden_size * seqlen * 1 * 5 ,
+                OPs=batchsize * hidden_size * seqlen * 1 * 5 // tp_size,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte,
-                store_act=batchsize * hidden_size * seqlen * a_byte,
+                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -657,10 +657,10 @@ class MoEAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "decode",
                 name,
-                OPs=batchsize * hidden_size * 1,
+                OPs=batchsize * hidden_size * 1 // tp_size,
                 load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte,
-                store_act=batchsize * hidden_size * 1 * a_byte,
+                load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+                store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
@@ -752,10 +752,10 @@ class MoEAnalyzer(ModelAnalyzer):
             self._analyze_to_results(
                 "prefill",
                 name,
-                OPs=batchsize * hidden_size * seqlen * 1,
+                OPs=batchsize * hidden_size * seqlen * 1 // tp_size,
                 load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte,
-                store_act=batchsize * hidden_size * seqlen * a_byte,
+                load_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
+                store_act=batchsize * hidden_size * seqlen * a_byte // tp_size,
                 load_kv_cache=0,
                 store_kv_cache=0,
             )
