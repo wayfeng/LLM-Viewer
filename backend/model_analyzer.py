@@ -517,8 +517,6 @@ class MoEAnalyzer(ModelAnalyzer):
         num_hidden_layers = self.module.get_num_hidden_layers(model_params)
         num_active_experts = self.module.get_num_active_experts(model_params) // tp_size
 
-        expert_diff_ratio = 0.3
-
         for name, (ic, oc) in self.module.get_linear_layers(model_params, tp_size).items():
             # for linear layers
             is_kv_proj = name in ["k_proj", "v_proj"]
@@ -530,7 +528,7 @@ class MoEAnalyzer(ModelAnalyzer):
                     "decode",
                     name,
                     OPs=ic * oc * batchsize * 2 * num_active_experts,
-                    load_weight=ic * oc * w_byte * batchsize * num_active_experts * expert_diff_ratio,
+                    load_weight=ic * oc * w_byte * min(32, (batchsize * num_active_experts)),
                     load_act=ic * batchsize * a_byte * num_active_experts,
                     store_act=oc * batchsize * a_byte * num_active_experts,
                     load_kv_cache=0,
@@ -541,7 +539,7 @@ class MoEAnalyzer(ModelAnalyzer):
                     "prefill",
                     name,
                     OPs=ic * oc * batchsize * seqlen * 2 * num_active_experts,
-                    load_weight=ic * oc * w_byte * batchsize * num_active_experts * expert_diff_ratio,
+                    load_weight=ic * oc * w_byte * min(32, (batchsize * num_active_experts)),
                     load_act=ic * batchsize * seqlen * a_byte * num_active_experts,
                     store_act=oc * batchsize * seqlen * a_byte * num_active_experts,
                     load_kv_cache=0,
