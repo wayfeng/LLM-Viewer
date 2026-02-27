@@ -134,8 +134,8 @@
 </template>
 
 <script setup>
-import { inject, ref, watch, provide } from 'vue';
-import { strNumber,strNumberTime } from '@/utils.js';
+import { inject, ref, watch, onMounted } from 'vue';
+import { strNumber, strNumberTime } from '@/utils.js';
 import axios from 'axios'
 
 const global_update_trigger = inject('global_update_trigger');
@@ -226,6 +226,11 @@ watch(select_hardware, (n) => {
         //global_update_trigger.value += 1
         update_hardware_info()
     }
+})
+
+onMounted(() => {
+    console.log("Left panel mounted")
+    update_available()
 })
 
 </script>
