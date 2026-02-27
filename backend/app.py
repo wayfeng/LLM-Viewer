@@ -2,7 +2,7 @@ from flask import Flask, request
 from flask_cors import CORS
 from get_model_graph import get_model_graph
 from model_params import get_available_models
-from hardwares import get_available_hardwares
+from hardwares import get_available_hardwares, get_hardware_params
 import argparse
 import logging
 
@@ -36,6 +36,11 @@ def get_available():
         "available_hardwares": get_available_hardwares(),
         "available_model_ids": get_available_models(),
     }
+
+@app.route("/get_hardware_params", methods=["POST"])
+def get_hardware_params_route():
+    hardware = request.json["hardware"]
+    return get_hardware_params(hardware)
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser()

@@ -1,5 +1,21 @@
 <template>
-    <h2>Inference Config</h2>
+    <h2>Configuration</h2>
+    <div class="config_div">
+        Server:
+        <select v-model="ip_port">
+            <option value="172.16.112.118:5000">172.16.112.118</option>
+            <option value="172.16.112.60:5000">172.16.112.60</option>
+            <option value="172.16.112.46:5000">172.16.112.46</option>
+            <option value="127.0.0.1:5000">localhost</option>
+        </select>
+    </div>
+    <div class="config_div">
+        Model:
+        <select v-model="select_model_id">
+            <option v-for="model_id in available_model_ids" :value="model_id">{{ model_id }}</option>
+        </select>
+    </div>
+    <h3>Inference Config</h3>
     <div class="config_div">
         Stage:
         <input type="radio" v-model="inference_stage" id="decode" value="decode" checked>
@@ -41,12 +57,7 @@
             <option value="8">8</option>
         </select>
     </div>
-    <!-- <div class="config_div">
-        Generation Length:
-        <input type="range" min="1" max="4096" value="1024" oninput="gen_length.innerText = this.value">
-        <p id="gen_length">1</p>
-    </div> -->
-    <h2>Optimization Config</h2>
+    <h3>Optimization Config</h3>
     <div class="config_div">
         Weight Quantization:
         <select v-model="w_quant">
@@ -81,6 +92,32 @@
         Use FlashAttention
         <input type="checkbox" v-model="use_flashattention">
     </div>
+    <h3>Hardware Config</h3>
+    <div class="config_div">
+        <span>Hardware: </span>
+        <select v-model="select_hardware">
+            <option v-for="hardware in available_hardwares" :value="hardware">{{ hardware }}</option>
+        </select>
+    </div>
+    <div class="config_div">
+        FP16
+        <input type="number" v-model="fp16_tops" min="1" step="0.1"> TOPS
+    </div>
+    <div class="config_div">
+        INT8
+        <input type="number" v-model="int8_tops" min="1" step="0.1"> TOPS
+    </div>
+    <div class="config_div">
+        Memory Bandwidth:
+        <input type="number" v-model="memory_bandwidth" min="1" step="0.1"> GB/s
+    </div>
+    <div class="config_div">
+        On-chip Buffer:
+        <input type="number" v-model="onchip_cache" min="1" step="0.1"> MB
+    </div>
+    <div class="button_div">
+        <button type="button" @click="trigger_analyze" style="width: 70%;">Analyze</button>
+    </div>
     <h2>Network-wise Analysis</h2>
     <div>
         <h3>{{ inference_stage }}</h3>
@@ -97,11 +134,11 @@
 </template>
 
 <script setup>
-import { inject, ref, watch, computed } from 'vue';
+import { inject, ref, watch, provide } from 'vue';
 import { strNumber,strNumberTime } from '@/utils.js';
+import axios from 'axios'
 
 const global_update_trigger = inject('global_update_trigger');
-
 
 const global_inference_config = inject('global_inference_config');
 const total_results = inject('total_results');
@@ -115,59 +152,80 @@ const w_quant = ref('8-bit');
 const a_quant = ref('8-bit');
 const kv_quant = ref('8-bit');
 const use_flashattention = ref(false);
+const fp16_tops = ref(450);
+const int8_tops = ref(900);
+const memory_bandwidth = ref(1536);
+const onchip_cache = ref(24);
 
-watch(inference_stage, (new_stage) => {
-    console.log("inference_stage", new_stage)
-    global_inference_config.value.stage = new_stage
+function trigger_analyze() {
+    global_inference_config.value.stage = inference_stage.value
+    global_inference_config.value.batch_size = batch_size.value
+    global_inference_config.value.seq_length = seq_length.value
+    global_inference_config.value.gen_length = gen_length.value
+    global_inference_config.value.tp_size = tp_size.value
+    global_inference_config.value.w_quant = w_quant.value
+    global_inference_config.value.a_quant = a_quant.value
+    global_inference_config.value.kv_quant = kv_quant.value
+    global_inference_config.value.use_flashattention = use_flashattention.value
+    global_inference_config.value.memory_bandwidth = memory_bandwidth.value
+    global_inference_config.value.onchip_cache = onchip_cache.value
+    global_inference_config.value.fp16_tops = fp16_tops.value
+    global_inference_config.value.int8_tops = int8_tops.value
     global_update_trigger.value += 1
+}
+
+const model_id = inject('model_id');
+const ip_port = inject('ip_port');
+const hardware = inject('hardware');
+
+const available_hardwares = ref([]);
+const available_model_ids = ref([]);
+
+function update_hardware_info() {
+    const url = 'http://' + ip_port.value + '/get_hardware_params'
+    axios.post(url, { hardware: hardware.value }).then(function (response) {
+        console.log(response);
+        fp16_tops.value = response.data.FP16
+        int8_tops.value = response.data.INT8
+        memory_bandwidth.value = response.data.bandwidth
+        onchip_cache.value = response.data.onchip_buffer
+    }).catch(function (error) {
+        console.log("error in get_hardware_params");
+        console.log(error);
+    });
+}
+
+function update_available() {
+    const url = 'http://' + ip_port.value + '/get_available'
+    axios.get(url).then(function (response) {
+        console.log(response);
+        available_hardwares.value = response.data.available_hardwares
+        available_model_ids.value = response.data.available_model_ids
+    }).catch(function (error) {
+        console.log("error in get_available");
+        console.log(error);
+    });
+}
+
+watch(ip_port, (n) => {
+    console.log("ip_port", n)
+    update_available()
 })
 
-watch(batch_size, (n) => {
-    console.log("inference_stage", n)
-    global_inference_config.value.batch_size = n
-    global_update_trigger.value += 1
+var select_model_id = ref(model_id.value);
+watch(select_model_id, (n) => {
+    console.log("select_model_id", n)
+    model_id.value = n
 })
 
-watch(seq_length, (n) => {
-    console.log("seq_length", n)
-    global_inference_config.value.seq_length = n
-    global_update_trigger.value += 1
-})
-
-watch(tp_size, (n) => {
-    console.log("tp_size", n)
-    global_inference_config.value.tp_size = n
-    global_update_trigger.value += 1
-})
-
-watch(w_quant, (n) => {
-    console.log("w_quant", n)
-    global_inference_config.value.w_quant = n
-    global_update_trigger.value += 1
-})
-
-watch(a_quant, (n) => {
-    console.log("a_quant", n)
-    global_inference_config.value.a_quant = n
-    global_update_trigger.value += 1
-})
-
-watch(kv_quant, (n) => {
-    console.log("kv_quant", n)
-    global_inference_config.value.kv_quant = n
-    global_update_trigger.value += 1
-})
-
-watch(use_flashattention, (n) => {
-    console.log("use_flashattention", n)
-    global_inference_config.value.use_flashattention = n
-    global_update_trigger.value += 1
-})
-
-watch(gen_length, (n) => {
-    console.log("gen_length", n)
-    global_inference_config.value.gen_length = n
-    global_update_trigger.value += 1
+var select_hardware = ref(hardware.value);
+watch(select_hardware, (n) => {
+    console.log("select_hardware", n)
+    hardware.value = n
+    if (n != "custom") {
+        //global_update_trigger.value += 1
+        update_hardware_info()
+    }
 })
 
 </script>
@@ -176,6 +234,13 @@ watch(gen_length, (n) => {
 
 .config_div{
     border-top: 1px solid #e2e2e2;
+    padding: 2px 0;
+}
+
+.button_div{
+    display: flex;
+    justify-content: center;
+    margin-top: 40px;
 }
 
 .hover_color {
@@ -195,9 +260,11 @@ watch(gen_length, (n) => {
     padding: 2px 6px;
     border-radius: 4px;
 }
+
 .highlight-time {
     color: #1e88e5;
 }
+
 .highlight-ops {
     color: #43a047;
 }

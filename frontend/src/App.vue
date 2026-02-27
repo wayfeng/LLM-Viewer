@@ -4,7 +4,7 @@ import Graph from "./components/Graph.vue"
 import LeftPannel from "./components/LeftPannel.vue"
 import Header from "./components/Header.vue"
 
-import { ref, computed, provide } from 'vue';
+import { ref, provide } from 'vue';
 
 const model_id = ref(import.meta.env.VITE_MODEL_ID);
 const hardware = ref(import.meta.env.VITE_HARDWARE);
@@ -28,7 +28,11 @@ const global_inference_config = ref({
   w_quant: "8-bit",
   a_quant: "8-bit",
   kv_quant: "8-bit",
-  use_flashattention: false
+  use_flashattention: false,
+  fp16_tops: 0,
+  int8_tops: 0,
+  memory_bandwidth: 0,
+  onchip_cache: 0,
 });
 provide("global_inference_config", global_inference_config);
 

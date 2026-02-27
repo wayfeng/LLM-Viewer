@@ -2,10 +2,9 @@ import os
 import logging
 import importlib
 import math
-from hardwares import get_hardware_info
 from roofline_model import roofline_analyze
 from model_params import load_model_params
-from utils import str_number, str_number_time
+from utils import print_params, str_number, str_number_time
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +43,13 @@ class ModelAnalyzer:
         self.kv_bit = None
         self.batchsize = None
         self.seqlen = None
+        self.bandwidth = None
+        self.f16_tops = None
+        self.int8_tops = None
+        self.onchip_buffer = None
 
-    def analyze(self, seqlen, batchsize, w_bit=16, a_bit=16, kv_bit=None, use_flashattention=False, kv_token_ratio=1, tp_size=1):
+    def analyze(self, seqlen, batchsize, w_bit=16, a_bit=16, kv_bit=None, use_flashattention=False,
+                kv_token_ratio=1, tp_size=1, bandwidth=None, fp16_tops=None, int8_tops=None, onchip_buffer=None):
         """
         seqlen: sequence length
         batchsize: batch size
@@ -105,7 +109,11 @@ class ModelAnalyzer:
         a_bit=16,
         kv_bit=None,
         use_flashattention = False,
-        tp_size: int = 1
+        tp_size: int = 1,
+        bandwidth=None,
+        fp16_tops=None,
+        int8_tops=None,
+        onchip_buffer=None
     ):
         prefill_result = self.analyze(
             prompt_len,
@@ -114,14 +122,17 @@ class ModelAnalyzer:
             a_bit,
             kv_bit,
             use_flashattention=use_flashattention,
-            tp_size=tp_size
+            tp_size=tp_size,
+            bandwidth=bandwidth,
+            fp16_tops=fp16_tops,
+            int8_tops=int8_tops,
+            onchip_buffer=onchip_buffer
         )
         prefill_time = inference_time = prefill_result["total_results"]["prefill"]["inference_time"]
+        prefill_time = inference_time = prefill_result["total_results"]["prefill"]["inference_time"]
+        inference_time += prefill_result["total_results"]["decode"]["inference_time"] * gen_len 
 
-        for i in range(prompt_len, prompt_len + gen_len):
-            result = self.analyze(i, batchsize, w_bit, a_bit, kv_bit, use_flashattention=use_flashattention, tp_size=tp_size)
-            inference_time += result["total_results"]["decode"]["inference_time"]
-        return {"inference_time": inference_time, "prefill_time": prefill_time}
+        return {"inference_time": inference_time * 1000, "prefill_time": prefill_time * 1000}
 
     def if_group_qa(self):
         """
@@ -132,6 +143,7 @@ class ModelAnalyzer:
             self.module.get_num_key_value_heads(self.model_params)
         )
 
+    @print_params
     def _analyze_to_results(
         self,
         stage,
@@ -143,9 +155,9 @@ class ModelAnalyzer:
         load_kv_cache=0,
         store_kv_cache=0,
     ):
-        bandwidth, max_OPS, _ = get_hardware_info(self.hardware, self.w_bit, self.a_bit, self.kv_bit)
+        max_OPS = self.int8_tops if self.w_bit <= 8 and self.a_bit <= 8 and self.kv_bit <= 8 else self.f16_tops
         memory_access = load_weight + load_act + store_act + load_kv_cache + store_kv_cache
-        arithmetic_intensity, performance, bound = roofline_analyze(bandwidth, max_OPS, OPs, memory_access)
+        arithmetic_intensity, performance, bound = roofline_analyze(self.bandwidth, max_OPS, OPs, memory_access)
         inference_time = OPs / performance
         self.results[stage][name] = {
             "OPs": OPs,
@@ -196,7 +208,9 @@ class ModelAnalyzer:
 class LLMAnalyzer(ModelAnalyzer):
     def __init__(self, model_id, hardware, model_params=None):
         super().__init__(model_id, hardware, model_params=model_params)
-    def analyze(self, seqlen, batchsize, w_bit=16, a_bit=16, kv_bit=None, use_flashattention=False, kv_token_ratio=1, tp_size=1):
+
+    def analyze(self, seqlen, batchsize, w_bit=16, a_bit=16, kv_bit=None, use_flashattention=False,
+                kv_token_ratio=1, tp_size=1, bandwidth=None, fp16_tops=None, int8_tops=None, onchip_buffer=None):
         assert seqlen > 0
         assert batchsize > 0
         self.results = {"decode": {}, "prefill": {}}
@@ -208,6 +222,10 @@ class LLMAnalyzer(ModelAnalyzer):
         self.batchsize = batchsize
         self.seqlen = seqlen
         self.tp_size = tp_size
+        self.bandwidth = bandwidth
+        self.f16_tops = fp16_tops
+        self.int8_tops = int8_tops
+        self.onchip_buffer = onchip_buffer
 
         w_byte = self.w_bit / 8
         a_byte = self.a_bit / 8
@@ -260,9 +278,8 @@ class LLMAnalyzer(ModelAnalyzer):
         softmax_OPs = batchsize * num_attention_heads * seqlen * 1 * 5 // tp_size
         if use_flashattention:
             name = f"fused_attention"
-            bandwidth, max_OPS, onchip_buffer = get_hardware_info(self.hardware, self.w_bit, self.a_bit, self.kv_bit)
             # flashattention-2 https://arxiv.org/pdf/2307.08691.pdf
-            block_size_r = min(math.ceil(onchip_buffer / (kv_byte * head_size)), head_size)
+            block_size_r = min(math.ceil(self.onchip_buffer / (kv_byte * head_size)), head_size)
             n_blocks_r = math.ceil(1 / block_size_r)
             q_numel = 1 * head_size * batchsize * num_attention_heads * a_byte // tp_size
             o_numel = 1 * seqlen * batchsize * num_attention_heads * a_byte // tp_size
@@ -360,9 +377,8 @@ class LLMAnalyzer(ModelAnalyzer):
         softmax_OPs = batchsize * num_attention_heads * seqlen * seqlen * 5 // tp_size
         if use_flashattention:
             name = f"fused_attention"
-            bandwidth, max_OPS, onchip_buffer = get_hardware_info(self.hardware, self.w_bit, self.a_bit, self.kv_bit)
             # flashattention-2 https://arxiv.org/pdf/2307.08691.pdf
-            block_size_r = min(math.ceil(onchip_buffer / (kv_byte * head_size)), head_size)
+            block_size_r = min(math.ceil(self.onchip_buffer / (kv_byte * head_size)), head_size)
             n_blocks_r = math.ceil(seqlen / block_size_r)
             q_numel = seqlen * head_size * batchsize * num_attention_heads * a_byte // tp_size
             o_numel = seqlen * seqlen * batchsize * num_attention_heads * a_byte // tp_size
@@ -493,7 +509,8 @@ class MoEAnalyzer(ModelAnalyzer):
     def __init__(self, model_id, hardware, model_params=None):
         super().__init__(model_id, hardware, model_params=model_params)
 
-    def analyze(self, seqlen, batchsize, w_bit=16, a_bit=16, kv_bit=None, use_flashattention=False, kv_token_ratio=1, tp_size = 1):
+    def analyze(self, seqlen, batchsize, w_bit=16, a_bit=16, kv_bit=None, use_flashattention=False,
+                kv_token_ratio=1, tp_size = 1, bandwidth=None, fp16_tops=None, int8_tops=None, onchip_buffer=None):
         assert seqlen > 0
         assert batchsize > 0
         self.results = {"decode": {}, "prefill": {}}
@@ -505,6 +522,10 @@ class MoEAnalyzer(ModelAnalyzer):
         self.batchsize = batchsize
         self.seqlen = seqlen
         self.tp_size = tp_size
+        self.bandwidth = bandwidth
+        self.f16_tops = fp16_tops
+        self.int8_tops = int8_tops
+        self.onchip_buffer = onchip_buffer
 
         w_byte = self.w_bit / 8
         a_byte = self.a_bit / 8
@@ -583,9 +604,8 @@ class MoEAnalyzer(ModelAnalyzer):
         softmax_OPs = batchsize * num_attention_heads * seqlen * 1 * 5 // tp_size
         if use_flashattention:
             name = f"fused_attention"
-            bandwidth, max_OPS, onchip_buffer = get_hardware_info(self.hardware, self.w_bit, self.a_bit, self.kv_bit)
             # flashattention-2 https://arxiv.org/pdf/2307.08691.pdf
-            block_size_r = min(math.ceil(onchip_buffer / (kv_byte * head_size)), head_size)
+            block_size_r = min(math.ceil(self.onchip_buffer / (kv_byte * head_size)), head_size)
             n_blocks_r = math.ceil(1 / block_size_r)
             q_numel = (1) * head_size * batchsize * num_attention_heads * a_byte
             o_numel = 1 * seqlen * batchsize * num_attention_heads * a_byte
@@ -684,9 +704,8 @@ class MoEAnalyzer(ModelAnalyzer):
         softmax_OPs = batchsize * num_attention_heads * seqlen * seqlen * 5 // tp_size
         if use_flashattention:
             name = f"fused_attention"
-            bandwidth, max_OPS, onchip_buffer = get_hardware_info(self.hardware, self.w_bit, self.a_bit, self.kv_bit)
             # flashattention-2 https://arxiv.org/pdf/2307.08691.pdf
-            block_size_r = min(math.ceil(onchip_buffer / (kv_byte * head_size)), head_size)
+            block_size_r = min(math.ceil(self.onchip_buffer / (kv_byte * head_size)), head_size)
             n_blocks_r = math.ceil(seqlen / block_size_r)
             q_numel = seqlen * head_size * batchsize * num_attention_heads * a_byte
             o_numel = seqlen * seqlen * batchsize * num_attention_heads * a_byte

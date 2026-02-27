@@ -3,38 +3,13 @@
         <a href="https://github.com/wayfeng/LLM-Viewer" target="_blank" class="hover-bold">LLM-Viewer</a>
         v{{ version }}
     </div>
-    <div class="header_button">
-        |
-        <span>Model: </span>
-        <select v-model="select_model_id">
-            <option v-for="model_id in available_model_ids" :value="model_id">{{ model_id }}</option>
-        </select>
-        <span> | </span>
-        <span>Hardware: </span>
-        <select v-model="select_hardware">
-            <option v-for="hardware in available_hardwares" :value="hardware">{{ hardware }}</option>
-        </select>
-    </div>
     <div>
         <span> | </span>
-        <span>Server: </span>
-        <select v-model="ip_port">
-            <option value="172.16.112.46:5000">172.16.112.46</option>
-            <option value="172.16.112.118:5000">172.16.112.118</option>
-            <option value="127.0.0.1:5000">localhost</option>
-        </select>
+        <a href="https://arxiv.org/pdf/2402.16363.pdf" target="_blank" class="hover-bold">Paper</a>
     </div>
     <div>
         <span> | </span>
         <span class="hover-bold" @click="is_show_help = ! is_show_help">Help</span>
-    </div>
-    <div>
-        <span> | </span>
-        <a href="https://github.com/wayfeng/LLM-Viewer" target="_blank" class="hover-bold">Github Project</a>
-    </div>
-    <div>
-        <span> | </span>
-        <a href="https://arxiv.org/pdf/2402.16363.pdf" target="_blank" class="hover-bold">Paper</a>
     </div>
     <div v-if="is_show_help" class="float-info-window">
         <!-- item -->
@@ -66,82 +41,14 @@
 </template>
 
 <script setup>
-import { inject, ref, watch, computed, onMounted } from 'vue';
-import axios from 'axios'
-const model_id = inject('model_id');
-const hardware = inject('hardware');
-const global_update_trigger = inject('global_update_trigger');
-const ip_port = inject('ip_port');
-
-const available_hardwares = ref([]);
-const available_model_ids = ref([]);
+import { ref } from 'vue';
 
 const version = ref(llm_viewer_frontend_version)
 
 const is_show_help = ref(false)
-
-function update_available() {
-    const url = 'http://' + ip_port.value + '/get_available'
-    axios.get(url).then(function (response) {
-        console.log(response);
-        available_hardwares.value = response.data.available_hardwares
-        available_model_ids.value = response.data.available_model_ids
-    })
-        .catch(function (error) {
-            console.log("error in get_available");
-            console.log(error);
-        });
-}
-
-onMounted(() => {
-    console.log("Header mounted")
-    update_available()
-})
-
-var select_model_id = ref(model_id.value);
-watch(select_model_id, (n) => {
-    console.log("select_model_id", n)
-    model_id.value = n
-    global_update_trigger.value += 1
-})
-
-var select_hardware = ref(hardware.value);
-watch(select_hardware, (n) => {
-    console.log("select_hardware", n)
-    hardware.value = n
-    global_update_trigger.value += 1
-})
-
-watch(ip_port, (n) => {
-    console.log("ip_port", n)
-    update_available()
-})
-
-
 </script>
 
 <style scoped>
-.header_button button {
-    font-size: 1.0rem;
-    margin: 5px;
-    padding: 5px;
-    border-radius: 5px;
-    border: 1px solid #000000;
-    /* background-color: #fff; */
-    /* color: #000; */
-    cursor: pointer;
-}
-
-.header_button button:hover {
-    color: #fff;
-    background-color: #000;
-}
-
-.header_button button:active {
-    color: #fff;
-    background-color: #000;
-}
-
 .active {
     color: #fff;
     background-color: #5b5b5b;
@@ -152,7 +59,7 @@ watch(ip_port, (n) => {
     text-align: left;
 }
 
-.hover-bold{
+.hover-bold {
     color: inherit;
     /* text-decoration: none; */
 }
@@ -160,7 +67,6 @@ watch(ip_port, (n) => {
 .hover-bold:hover {
     font-weight: bold;
 }
-
 
 .float-info-window {
     position: absolute;

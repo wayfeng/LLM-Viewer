@@ -1,3 +1,15 @@
+import functools
+
+PRINT_PARAMS_ENABLED = False  # Set to False to disable printing
+def print_params(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if PRINT_PARAMS_ENABLED:
+            print(f"Called {func.__name__} with:")
+            print("  args:", args)
+            print("  kwargs:", kwargs)
+        return func(*args, **kwargs)
+    return wrapper
 
 def str_number(num, unit=""):
     if num > 1e14:
