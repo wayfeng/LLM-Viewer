@@ -1,28 +1,17 @@
 <template>
     <div class="title">
-        <a href="https://github.com/wayfeng/LLM-Viewer" target="_blank" class="hover-bold">LLM-Viewer</a>
-        v{{ version }}
-    </div>
-    <div>
-        <span> | </span>
-        <a href="https://arxiv.org/pdf/2402.16363.pdf" target="_blank" class="hover-bold">Paper</a>
-    </div>
-    <div>
-        <span> | </span>
-        <span class="hover-bold" @click="is_show_help = ! is_show_help">Help</span>
+        <span class="hover-bold" @click="is_show_help = ! is_show_help">ModelViewer</span>
     </div>
     <div v-if="is_show_help" class="float-info-window">
         <!-- item -->
-        <p>LLM-Viewer is a open-sourced tool to visualize the LLM model and analyze the deployment on hardware devices.</p>
+        <p>ModelViewer is based on LLM-Viewer to visualize AI models and analyze the deployment on hardware devices.</p>
+        <p>At the center of the page, you can see the graph of the model. Click the node to see the detail of the node.</p>
         <p>
-            At the center of the page, you can see the graph of the LLM model. Click the node to see the detail of the node.
+            ← At the left of the page, you can see the configuration pannel.
+            You can select the backend server, the model, and hardware device.
+            You can set the inference config and optimization config.
         </p>
-        <p>↑ At the top of the page, you can set the LLM model, hardware devices, and server.
-            If you deploy the LLM-Viewer localhost, you can select the localhost server.
-        </p>
-        <p>
-            ← At the left of the page, you can see the configuration pannel. You can set the inference config and optimization config.
-        </p>
+        <p>Click "analyze" button to start the analysis.</p>
         <p>
             ↙ The Network-wise Analysis result is demonstrated in the left pannel.
         </p>
@@ -31,12 +20,6 @@
             In this paper, we provide a comprehensive analysis of the latest advancements in efficient LLM inference using LLM-Viewer. 
             Citation bibtext:
         </p>
-        @article{yuan2024llm,<br/>
-            &nbsp    title={LLM Inference Unveiled: Survey and Roofline Model Insights},<br/>
-            &nbsp    author={Yuan, Zhihang and Shang, Yuzhang and Zhou, Yang and Dong, Zhen and Xue, Chenhao and Wu, Bingzhe and Li, Zhikai and Gu, Qingyi and Lee, Yong Jae and Yan, Yan and others},<br/>
-            &nbsp    journal={arXiv preprint arXiv:2402.16363},<br/>
-            &nbsp    year={2024}<br/>
-        }
     </div>
 </template>
 
@@ -55,8 +38,10 @@ const is_show_help = ref(false)
 }
 
 .title {
-    font-size: 18px;
+    font-size: 24px;
     text-align: left;
+    padding-left: 20px;
+    padding-right: 20px;
 }
 
 .hover-bold {

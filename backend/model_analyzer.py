@@ -17,7 +17,6 @@ ALL_DATA_NAMES = [
     "load_kv_cache",
     "store_kv_cache",
     "inference_time",
-    #"throughtput",
 ]
 
 MODEL_ANALYZER_REGISTRY = {

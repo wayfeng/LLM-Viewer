@@ -15,6 +15,29 @@
             <option v-for="model_id in available_model_ids" :value="model_id">{{ model_id }}</option>
         </select>
     </div>
+    <h3>Hardware Config</h3>
+    <div class="config_div">
+        <span>Hardware: </span>
+        <select v-model="select_hardware">
+            <option v-for="hardware in available_hardwares" :value="hardware">{{ hardware }}</option>
+        </select>
+    </div>
+    <div class="config_div">
+        FP16
+        <input type="number" v-model="fp16_tops" min="1" step="0.1"> TOPS
+    </div>
+    <div class="config_div">
+        INT8
+        <input type="number" v-model="int8_tops" min="1" step="0.1"> TOPS
+    </div>
+    <div class="config_div">
+        Memory Bandwidth:
+        <input type="number" v-model="memory_bandwidth" min="1" step="0.1"> GB/s
+    </div>
+    <div class="config_div">
+        On-chip Buffer:
+        <input type="number" v-model="onchip_cache" min="1" step="0.1"> MB
+    </div>
     <h3>Inference Config</h3>
     <div class="config_div">
         Stage:
@@ -61,59 +84,36 @@
     <div class="config_div">
         Weight Quantization:
         <select v-model="w_quant">
-            <option value="FP16">FP16</option>
-            <option value="8-bit">8-bit</option>
-            <option value="4-bit">4-bit</option>
-            <option value="2-bit">2-bit</option>
-            <option value="1-bit">1-bit</option>
+            <option value="16">FP16</option>
+            <option value="8">8-bit</option>
+            <option value="4">4-bit</option>
+            <option value="2">2-bit</option>
+            <option value="1">1-bit</option>
         </select>
     </div>
     <div class="config_div">
         Activation Quantization
         <select v-model="a_quant">
-            <option value="FP16">FP16</option>
-            <option value="8-bit">8-bit</option>
-            <option value="4-bit">4-bit</option>
-            <option value="2-bit">2-bit</option>
-            <option value="1-bit">1-bit</option>
+            <option value="16">FP16</option>
+            <option value="8">8-bit</option>
+            <option value="4">4-bit</option>
+            <option value="2">2-bit</option>
+            <option value="1">1-bit</option>
         </select>
     </div>
     <div class="config_div">
         KV Cache Quantization
         <select v-model="kv_quant">
-            <option value="FP16">FP16</option>
-            <option value="8-bit">8-bit</option>
-            <option value="4-bit">4-bit</option>
-            <option value="2-bit">2-bit</option>
-            <option value="1-bit">1-bit</option>
+            <option value="16">FP16</option>
+            <option value="8">8-bit</option>
+            <option value="4">4-bit</option>
+            <option value="2">2-bit</option>
+            <option value="1">1-bit</option>
         </select>
     </div>
     <div class="config_div">
         Use FlashAttention
         <input type="checkbox" v-model="use_flashattention">
-    </div>
-    <h3>Hardware Config</h3>
-    <div class="config_div">
-        <span>Hardware: </span>
-        <select v-model="select_hardware">
-            <option v-for="hardware in available_hardwares" :value="hardware">{{ hardware }}</option>
-        </select>
-    </div>
-    <div class="config_div">
-        FP16
-        <input type="number" v-model="fp16_tops" min="1" step="0.1"> TOPS
-    </div>
-    <div class="config_div">
-        INT8
-        <input type="number" v-model="int8_tops" min="1" step="0.1"> TOPS
-    </div>
-    <div class="config_div">
-        Memory Bandwidth:
-        <input type="number" v-model="memory_bandwidth" min="1" step="0.1"> GB/s
-    </div>
-    <div class="config_div">
-        On-chip Buffer:
-        <input type="number" v-model="onchip_cache" min="1" step="0.1"> MB
     </div>
     <div class="button_div">
         <button type="button" @click="trigger_analyze" style="width: 70%;">Analyze</button>
@@ -148,9 +148,9 @@ const batch_size = ref(1);
 const seq_length = ref(1024);
 const gen_length = ref(1);
 const tp_size = ref(1);
-const w_quant = ref('8-bit');
-const a_quant = ref('8-bit');
-const kv_quant = ref('8-bit');
+const w_quant = ref(8);
+const a_quant = ref(8);
+const kv_quant = ref(8);
 const use_flashattention = ref(false);
 const fp16_tops = ref(450);
 const int8_tops = ref(900);
@@ -159,16 +159,16 @@ const onchip_cache = ref(24);
 
 function trigger_analyze() {
     global_inference_config.value.stage = inference_stage.value
-    global_inference_config.value.batch_size = batch_size.value
-    global_inference_config.value.seq_length = seq_length.value
-    global_inference_config.value.gen_length = gen_length.value
+    global_inference_config.value.batchsize = batch_size.value
+    global_inference_config.value.seqlen = seq_length.value
+    global_inference_config.value.genlen = gen_length.value
     global_inference_config.value.tp_size = tp_size.value
-    global_inference_config.value.w_quant = w_quant.value
-    global_inference_config.value.a_quant = a_quant.value
-    global_inference_config.value.kv_quant = kv_quant.value
+    global_inference_config.value.w_bit = w_quant.value
+    global_inference_config.value.a_bit = a_quant.value
+    global_inference_config.value.kv_bit = kv_quant.value
     global_inference_config.value.use_flashattention = use_flashattention.value
-    global_inference_config.value.memory_bandwidth = memory_bandwidth.value
-    global_inference_config.value.onchip_cache = onchip_cache.value
+    global_inference_config.value.bandwidth = memory_bandwidth.value
+    global_inference_config.value.onchip_buffer = onchip_cache.value
     global_inference_config.value.fp16_tops = fp16_tops.value
     global_inference_config.value.int8_tops = int8_tops.value
     global_update_trigger.value += 1
@@ -238,14 +238,14 @@ onMounted(() => {
 <style>
 
 .config_div{
-    border-top: 1px solid #e2e2e2;
     padding: 2px 0;
 }
 
 .button_div{
     display: flex;
     justify-content: center;
-    margin-top: 40px;
+    margin-top: 20px;
+    height: 50px;
 }
 
 .hover_color {
@@ -255,7 +255,6 @@ onMounted(() => {
 
 .network-wise-info-item {
     padding: 3px;
-    border-top: 1px solid #e2e2e2;
 }
 
 .highlight-span {

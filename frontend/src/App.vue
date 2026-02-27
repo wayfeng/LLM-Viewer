@@ -20,19 +20,19 @@ provide("ip_port", ip_port);
 
 
 const global_inference_config = ref({ 
-  "stage": "decode",
-  batch_size: 1,
-  seq_length: 1024,
-  gen_length: 1,
+  stage: "decode",
+  batchsize: 1,
+  seqlen: 1024,
+  genlen: 1,
   tp_size: 1,
-  w_quant: "8-bit",
-  a_quant: "8-bit",
-  kv_quant: "8-bit",
+  w_bit: 8,
+  a_bit: 8,
+  kv_bit: 8,
   use_flashattention: false,
   fp16_tops: 0,
   int8_tops: 0,
-  memory_bandwidth: 0,
-  onchip_cache: 0,
+  bandwidth: 0,
+  onchip_buffer: 0,
 });
 provide("global_inference_config", global_inference_config);
 

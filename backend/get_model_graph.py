@@ -3,35 +3,20 @@ from hardwares import hardware_params
 from model_analyzer import get_analyzer
 from utils import str_number
 
-
-def get_quant_bit(dtype):
-    if dtype == "FP16":
-        return 16
-    elif dtype == "INT8":
-        return 8
-    elif dtype == "INT4":
-        return 4
-    elif "bit" in dtype:
-        bitwidth = int(re.findall(r"\d+", dtype)[0])
-        return bitwidth
-    else:
-        raise ValueError(f"Unsupported dtype:{dtype}")
-
-
 def get_model_graph(model_id, hardware, inference_config):
     #print(inference_config)
-    w_bit = get_quant_bit(inference_config["w_quant"])
-    a_bit = get_quant_bit(inference_config["a_quant"])
-    kv_bit = get_quant_bit(inference_config["kv_quant"])
-    seq_length = int(inference_config["seq_length"])
-    batch_size = int(inference_config["batch_size"])
+    w_bit = int(inference_config["w_bit"])
+    a_bit = int(inference_config["a_bit"])
+    kv_bit = int(inference_config["kv_bit"])
+    seq_length = int(inference_config["seqlen"])
+    batch_size = int(inference_config["batchsize"])
     use_flashattention = bool(inference_config["use_flashattention"])
-    gen_length = int(inference_config["gen_length"])
+    gen_length = int(inference_config["genlen"])
     tp_size = int(inference_config["tp_size"])
     fp16_tops = float(inference_config["fp16_tops"]) * 1e12
     int8_tops = float(inference_config["int8_tops"]) * 1e12
-    bandwidth = float(inference_config["memory_bandwidth"]) * 1e9
-    onchip_buffer = float(inference_config["onchip_cache"]) * 1e6
+    bandwidth = float(inference_config["bandwidth"]) * 1e9
+    onchip_buffer = float(inference_config["onchip_buffer"]) * 1e6
 
     analyzer = get_analyzer(model_id, hardware)
     result = analyzer.analyze(
@@ -55,12 +40,7 @@ def get_model_graph(model_id, hardware, inference_config):
         "onchip_buffer": onchip_buffer,
     }
 
-    nodes = [
-        {
-            "label": "input",
-            "id": "input",
-        }
-    ]
+    nodes = [{"label": "input", "id": "input",}]
     edges = []
 
     def write_to_node(name, OPs, memory_access, info, input_names=[]):
