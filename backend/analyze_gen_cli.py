@@ -19,7 +19,7 @@ args = parser.parse_args()
 
 hw = args.hardware
 assert hw in hardware_params
-analyzer=get_analyzer(args.model_id, args.hardware)
+analyzer=get_analyzer(args.model_id)
 ret = analyzer.analyze_generate_task(
     args.promptlen,
     args.seqlen,

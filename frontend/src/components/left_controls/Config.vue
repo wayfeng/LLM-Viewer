@@ -49,25 +49,19 @@
         <label for="prefill">Chat</label>
     </div>
     <div class="config_div">
-        Batchsize:
-        <input type="range" min="1" max="256" value="1" v-model.lazy="batch_size">
+        Batch size
         <input type="number" v-model.lazy="batch_size" min="1" max="256">
     </div>
     <!-- <div class="config_div" v-if="inference_stage!=chat"> -->
     <div class="config_div" v-if="inference_stage!='chat'">
-        SeqLength:
-        <input type="range" min="1" max="4096" value="1024" v-model.lazy="seq_length">
-        <!-- <span id="seq_length">1024</span> -->
+        Prompt Length
         <input type="number" v-model.lazy="seq_length" min="1" max="4096">
     </div>
     <div class="config_div" v-else>
-        PromptLength:
-        <input type="range" min="1" max="4096" value="1024" v-model.lazy="seq_length">
-        <!-- <span id="seq_length">1024</span> -->
+        Prompt Length
         <input type="number" v-model.lazy="seq_length" min="1" max="4096">
         <br/>
-        GenerateLength:
-        <input type="range" min="1" max="4096" value="1024" v-model.lazy="gen_length">
+        Generate Length
         <!-- <span id="seq_length">1024</span> -->
         <input type="number" v-model.lazy="gen_length" min="1" max="4096">
     </div>
@@ -82,7 +76,7 @@
     </div>
     <h3>Optimization Config</h3>
     <div class="config_div">
-        Weight Quantization:
+        Weight Quantization
         <select v-model="w_quant">
             <option value="16">FP16</option>
             <option value="8">8-bit</option>
@@ -146,7 +140,7 @@ const total_results = inject('total_results');
 const inference_stage = ref('decode');
 const batch_size = ref(1);
 const seq_length = ref(1024);
-const gen_length = ref(1);
+const gen_length = ref(1024);
 const tp_size = ref(1);
 const w_quant = ref(8);
 const a_quant = ref(8);
@@ -156,6 +150,7 @@ const fp16_tops = ref(450);
 const int8_tops = ref(900);
 const memory_bandwidth = ref(1536);
 const onchip_cache = ref(24);
+const max_ops = ref(0);
 
 function trigger_analyze() {
     global_inference_config.value.stage = inference_stage.value
@@ -167,10 +162,10 @@ function trigger_analyze() {
     global_inference_config.value.a_bit = a_quant.value
     global_inference_config.value.kv_bit = kv_quant.value
     global_inference_config.value.use_flashattention = use_flashattention.value
-    global_inference_config.value.bandwidth = memory_bandwidth.value
-    global_inference_config.value.onchip_buffer = onchip_cache.value
-    global_inference_config.value.fp16_tops = fp16_tops.value
-    global_inference_config.value.int8_tops = int8_tops.value
+    global_inference_config.value.bandwidth = memory_bandwidth.value * 1e9
+    global_inference_config.value.onchip_buffer = onchip_cache.value * 1e6
+    global_inference_config.value.fp16_tops = fp16_tops.value * 1e12
+    global_inference_config.value.int8_tops = int8_tops.value * 1e12
     global_update_trigger.value += 1
 }
 

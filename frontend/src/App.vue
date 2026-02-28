@@ -23,7 +23,7 @@ const global_inference_config = ref({
   stage: "decode",
   batchsize: 1,
   seqlen: 1024,
-  genlen: 1,
+  genlen: 1024,
   tp_size: 1,
   w_bit: 8,
   a_bit: 8,

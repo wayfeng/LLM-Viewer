@@ -20,7 +20,6 @@ def get_graph():
     inference_config = request.json["inference_config"]
     nodes, edges, total_results, hardware_info = get_model_graph(
         request.json["model_id"],
-        request.json["hardware"],
         inference_config,
     )
     return {

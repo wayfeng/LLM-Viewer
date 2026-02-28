@@ -41,8 +41,11 @@ import { Chart, registerables } from 'chart.js';
 
 import annotationPlugin from 'chartjs-plugin-annotation';
 
+const bandwidth = inject('memory_bandwidth')
+const onchip_cache = inject('onchip_cache')
+const max_ops = inject('max_ops')
+
 const model_id = inject('model_id')
-const hardware = inject('hardware')
 const global_update_trigger = inject('global_update_trigger')
 const global_inference_config = inject('global_inference_config')
 const ip_port = inject('ip_port')
@@ -87,7 +90,6 @@ function graphUpdate() {
         url,
         {
             model_id: model_id.value,
-            hardware: hardware.value,
             inference_config: global_inference_config.value
         }
     ).then(function (response) {
@@ -176,7 +178,6 @@ function SelectNode(nodeId, moveView = false) {
     }
     const node = graph.findById(nodeId)
     if (node) {
-        // 高亮
         if (node.getModel().style.fill) {
             nowFocusNodePrevColor = node.getModel().style.fill
         } else {
@@ -200,6 +201,8 @@ function update_roofline_model() {
         if (roofline_chart) {
             roofline_chart.destroy();
         }
+
+        //TODO: get bandwidth and max_ops from Leftpanel
         const bandwidth = hardware_info["bandwidth"];
         const max_OPS = hardware_info["max_OPS"];
         const turningPoint = max_OPS / bandwidth;

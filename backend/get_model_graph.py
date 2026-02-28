@@ -1,39 +1,28 @@
-import re
-from hardwares import hardware_params
 from model_analyzer import get_analyzer
 from utils import str_number
 
-def get_model_graph(model_id, hardware, inference_config):
-    #print(inference_config)
+def get_model_graph(model_id, inference_config):
     w_bit = int(inference_config["w_bit"])
     a_bit = int(inference_config["a_bit"])
     kv_bit = int(inference_config["kv_bit"])
-    seq_length = int(inference_config["seqlen"])
-    batch_size = int(inference_config["batchsize"])
     use_flashattention = bool(inference_config["use_flashattention"])
     gen_length = int(inference_config["genlen"])
-    tp_size = int(inference_config["tp_size"])
-    fp16_tops = float(inference_config["fp16_tops"]) * 1e12
-    int8_tops = float(inference_config["int8_tops"]) * 1e12
-    bandwidth = float(inference_config["bandwidth"]) * 1e9
-    onchip_buffer = float(inference_config["onchip_buffer"]) * 1e6
+    fp16_tops = float(inference_config["fp16_tops"])
+    int8_tops = float(inference_config["int8_tops"])
+    bandwidth = float(inference_config["bandwidth"])
+    onchip_buffer = float(inference_config["onchip_buffer"])
 
-    analyzer = get_analyzer(model_id, hardware)
-    result = analyzer.analyze(
-        seqlen=seq_length,
-        batchsize=batch_size,
-        w_bit=w_bit,
-        a_bit=a_bit,
-        kv_bit=kv_bit,
-        use_flashattention=use_flashattention,
-        tp_size=tp_size,
-        fp16_tops=fp16_tops,
-        int8_tops=int8_tops,
-        bandwidth=bandwidth,
-        onchip_buffer=onchip_buffer,
-    )
+    configs = {}
+    for key in inference_config.keys():
+        if key not in ["stage", "genlen"]:
+            configs[key] = inference_config[key]
+
+    analyzer = get_analyzer(model_id)
+    result = analyzer.analyze(**configs)
 
     GQA = analyzer.if_group_qa()
+
+    #TODO: hardware_info should be in frontend already
     hardware_info = {
         "bandwidth": bandwidth,
         "max_OPS": int8_tops if w_bit <= 8 and a_bit <= 8 and kv_bit <= 8 else fp16_tops,
