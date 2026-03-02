@@ -157,7 +157,7 @@ function trigger_analyze() {
     global_inference_config.value.batchsize = batch_size.value
     global_inference_config.value.seqlen = seq_length.value
     global_inference_config.value.genlen = gen_length.value
-    global_inference_config.value.tp_size = tp_size.value
+    global_inference_config.value.tp_size = tp_size.value * 1.0
     global_inference_config.value.w_bit = w_quant.value * 1.0
     global_inference_config.value.a_bit = a_quant.value * 1.0
     global_inference_config.value.kv_bit = kv_quant.value * 1.0
