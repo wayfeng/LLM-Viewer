@@ -68,41 +68,41 @@
     <div class="config_div">
         Tensor parallelism
         <select v-model="tp_size">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="4">4</option>
-            <option value="8">8</option>
+            <option value=1>1</option>
+            <option value=2>2</option>
+            <option value=4>4</option>
+            <option value=8>8</option>
         </select>
     </div>
     <h3>Optimization Config</h3>
     <div class="config_div">
         Weight Quantization
         <select v-model="w_quant">
-            <option value="16">FP16</option>
-            <option value="8">8-bit</option>
-            <option value="4">4-bit</option>
-            <option value="2">2-bit</option>
-            <option value="1">1-bit</option>
+            <option value=16>FP16</option>
+            <option value=8>8-bit</option>
+            <option value=4>4-bit</option>
+            <option value=2>2-bit</option>
+            <option value=1>1-bit</option>
         </select>
     </div>
     <div class="config_div">
         Activation Quantization
         <select v-model="a_quant">
-            <option value="16">FP16</option>
-            <option value="8">8-bit</option>
-            <option value="4">4-bit</option>
-            <option value="2">2-bit</option>
-            <option value="1">1-bit</option>
+            <option value=16>FP16</option>
+            <option value=8>8-bit</option>
+            <option value=4>4-bit</option>
+            <option value=2>2-bit</option>
+            <option value=1>1-bit</option>
         </select>
     </div>
     <div class="config_div">
         KV Cache Quantization
         <select v-model="kv_quant">
-            <option value="16">FP16</option>
-            <option value="8">8-bit</option>
-            <option value="4">4-bit</option>
-            <option value="2">2-bit</option>
-            <option value="1">1-bit</option>
+            <option value=16>FP16</option>
+            <option value=8>8-bit</option>
+            <option value=4>4-bit</option>
+            <option value=2>2-bit</option>
+            <option value=1>1-bit</option>
         </select>
     </div>
     <div class="config_div">
@@ -158,9 +158,9 @@ function trigger_analyze() {
     global_inference_config.value.seqlen = seq_length.value
     global_inference_config.value.genlen = gen_length.value
     global_inference_config.value.tp_size = tp_size.value
-    global_inference_config.value.w_bit = w_quant.value
-    global_inference_config.value.a_bit = a_quant.value
-    global_inference_config.value.kv_bit = kv_quant.value
+    global_inference_config.value.w_bit = w_quant.value * 1.0
+    global_inference_config.value.a_bit = a_quant.value * 1.0
+    global_inference_config.value.kv_bit = kv_quant.value * 1.0
     global_inference_config.value.use_flashattention = use_flashattention.value
     global_inference_config.value.bandwidth = memory_bandwidth.value * 1e9
     global_inference_config.value.onchip_buffer = onchip_cache.value * 1e6
