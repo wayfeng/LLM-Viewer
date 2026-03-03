@@ -70,6 +70,7 @@ def get_linear_layers(model_params, tp_size: int):
         "k_proj":[hidden_size, hidden_size * key_value_heads // attention_heads // tp_size],
         "v_proj":[hidden_size, hidden_size * key_value_heads // attention_heads // tp_size],
         "out_proj":[hidden_size // tp_size, hidden_size],
+	"gate": [hidden_size, num_experts],
         "gate_proj":[hidden_size, moe_intermediate_size],
         "up_proj":[hidden_size, moe_intermediate_size],
         "down_proj":[moe_intermediate_size, hidden_size],
