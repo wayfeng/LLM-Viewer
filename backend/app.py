@@ -18,7 +18,7 @@ def index():
 @app.route("/get_graph", methods=["POST"])
 def get_graph():
     inference_config = request.json["inference_config"]
-    nodes, edges, total_results, hardware_info = get_model_graph(
+    nodes, edges, total_results = get_model_graph(
         request.json["model_id"],
         inference_config,
     )
@@ -26,7 +26,6 @@ def get_graph():
         "nodes": nodes,
         "edges": edges,
         "total_results": total_results,
-        "hardware_info": hardware_info,
     }
 
 @app.route("/get_available", methods=["GET"])

@@ -12,6 +12,12 @@ const global_update_trigger = ref(1);
 const total_results = ref({});
 const ip_port = ref(import.meta.env.VITE_IP_PORT);
 
+const bandwidth = ref(0);
+provide("bandwidth", bandwidth);
+
+const max_ops = ref(0);
+provide("max_ops", max_ops);
+
 provide("model_id", model_id);
 provide("hardware", hardware);
 provide("global_update_trigger", global_update_trigger);

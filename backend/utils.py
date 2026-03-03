@@ -1,6 +1,6 @@
 import functools
 
-PRINT_PARAMS_ENABLED = False  # Set to False to disable printing
+PRINT_PARAMS_ENABLED = False
 def print_params(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):

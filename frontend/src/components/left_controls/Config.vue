@@ -137,26 +137,28 @@ const global_update_trigger = inject('global_update_trigger');
 const global_inference_config = inject('global_inference_config');
 const total_results = inject('total_results');
 
+const bandwidth = inject('bandwidth');
+const max_ops = inject('max_ops');
+
 const inference_stage = ref('decode');
 const batch_size = ref(1);
 const seq_length = ref(1024);
 const gen_length = ref(1024);
 const tp_size = ref(1);
 const w_quant = ref(8);
-const a_quant = ref(8);
-const kv_quant = ref(8);
+const a_quant = ref(16);
+const kv_quant = ref(16);
 const use_flashattention = ref(false);
 const fp16_tops = ref(450);
 const int8_tops = ref(900);
 const memory_bandwidth = ref(1536);
 const onchip_cache = ref(24);
-const max_ops = ref(0);
 
 function trigger_analyze() {
     global_inference_config.value.stage = inference_stage.value
-    global_inference_config.value.batchsize = batch_size.value
-    global_inference_config.value.seqlen = seq_length.value
-    global_inference_config.value.genlen = gen_length.value
+    global_inference_config.value.batchsize = batch_size.value * 1.0
+    global_inference_config.value.seqlen = seq_length.value * 1.0
+    global_inference_config.value.genlen = gen_length.value * 1.0
     global_inference_config.value.tp_size = tp_size.value * 1.0
     global_inference_config.value.w_bit = w_quant.value * 1.0
     global_inference_config.value.a_bit = a_quant.value * 1.0
@@ -184,6 +186,13 @@ function update_hardware_info() {
         int8_tops.value = response.data.INT8
         memory_bandwidth.value = response.data.bandwidth
         onchip_cache.value = response.data.onchip_buffer
+
+        bandwidth.value = memory_bandwidth.value * 1e9
+        if (w_quant.value <= 8 && a_quant.value <= 8) {
+            max_ops.value = int8_tops.value * 1e12
+        } else {
+            max_ops.value = fp16_tops.value * 1e12
+        }
     }).catch(function (error) {
         console.log("error in get_hardware_params");
         console.log(error);
