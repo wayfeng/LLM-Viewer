@@ -15,6 +15,7 @@ available_model_ids_sources = {
     "openai/gpt-oss-120b": {"source": "huggingface"},
     "LLM-Research/llama-2-7b": {"source": "modelscope"},
     "LLM-Research/llama-2-13b": {"source": "modelscope"},
+    "LLM-Research/Meta-Llama-3.1-405B": {"source": "modelscope"},
     "zai-org/chatglm3-6b": {"source": "huggingface"},
     "deepseek-ai/DeepSeek-R1-Distill-Llama-70B": {"source": "huggingface"},
 }

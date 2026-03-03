@@ -4,13 +4,19 @@ import Graph from "./components/Graph.vue"
 import LeftPannel from "./components/LeftPannel.vue"
 import Header from "./components/Header.vue"
 
-import { ref, computed, provide } from 'vue';
+import { ref, provide } from 'vue';
 
 const model_id = ref(import.meta.env.VITE_MODEL_ID);
 const hardware = ref(import.meta.env.VITE_HARDWARE);
 const global_update_trigger = ref(1);
 const total_results = ref({});
 const ip_port = ref(import.meta.env.VITE_IP_PORT);
+
+const bandwidth = ref(0);
+provide("bandwidth", bandwidth);
+
+const max_ops = ref(0);
+provide("max_ops", max_ops);
 
 provide("model_id", model_id);
 provide("hardware", hardware);
@@ -20,15 +26,19 @@ provide("ip_port", ip_port);
 
 
 const global_inference_config = ref({ 
-  "stage": "decode",
-  batch_size: 1,
-  seq_length: 1024,
-  gen_length: 1,
+  stage: "decode",
+  batchsize: 1,
+  seqlen: 1024,
+  genlen: 1024,
   tp_size: 1,
-  w_quant: "8-bit",
-  a_quant: "8-bit",
-  kv_quant: "8-bit",
-  use_flashattention: false
+  w_bit: 8,
+  a_bit: 8,
+  kv_bit: 8,
+  use_flashattention: false,
+  fp16_tops: 0,
+  int8_tops: 0,
+  bandwidth: 0,
+  onchip_buffer: 0,
 });
 provide("global_inference_config", global_inference_config);
 

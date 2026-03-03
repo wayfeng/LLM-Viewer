@@ -1,3 +1,6 @@
+from utils import print_params
+
+@print_params
 def roofline_analyze(bandwidth, max_OPS, OPs, memory_access):
     # bandwidth is bytes/s
     # memory_access in byte

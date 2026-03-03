@@ -9,7 +9,7 @@ services:
     environment:
       - VITE_IP_PORT=172.16.112.118:5000
       - VITE_MODEL_ID=Qwen/Qwen3-4B-Instruct-2507
-      - VITE_HARDWARE=intel_ARC_B60
+      - VITE_HARDWARE=custom
     depends_on:
       - backend
     ports:

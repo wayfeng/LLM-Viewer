@@ -1,4 +1,5 @@
 hardware_params = {
+    "custom": {"bandwidth": 0, "FP16": 0, "INT8": 0, "onchip_buffer": 0},
     # NOTICES: For GPU, we use Register File Size as on-chip buffer size
     # https://images.nvidia.com/content/volta-architecture/pdf/volta-architecture-whitepaper.pdf
     # NOTICE: V100 not support INT8 in tensor core, so INT8 performance is not good
@@ -31,7 +32,6 @@ hardware_params = {
     # Intel Skylake-X (Skylake-X, Cascade Lake) Intel Xeon Phi (Knights Landing, Knights Mill) Intel Ice Lake, Tiger Lake and Rocket Lake
     # support AVX-512 & FMA (512-bit), they has throughput of 1 cycle
     # https://www.intel.com/content/www/us/en/products/sku/230496/intel-core-i913900k-processor-36m-cache-up-to-5-80-ghz/specifications.html
-    "intel_13900k": {"bandwidth": 89.6e9, "FP16": 8 * 5.4e9 * (512 / 16), "onchip_buffer": 36e6},
     "intel_ARC_B60": {"bandwidth": 456e9, "FP16": 96e12, "INT8": 197e12, "onchip_buffer": 18e6},
     # https://www.intel.com/content/www/us/en/products/sku/243916/intel-arc-pro-b60-graphics/specifications.html
     "intel_ARC_B570": {"bandwidth": 380e9, "FP16": 100e12, "INT8": 203e12, "onchip_buffer": 13.5e6},
@@ -58,3 +58,14 @@ def get_hardware_info(hardware: str, w_bit: int, a_bit: int, kv_bit: int):
 
 def get_available_hardwares():
     return list(hardware_params.keys())
+
+def get_hardware_params(hardware):
+    if not hardware in hardware_params:
+        raise ValueError(f"Unsupported hardware:{hardware}")
+    params = hardware_params[hardware]
+    return {
+        "bandwidth": params["bandwidth"] // 1e9,  # convert to GB/s
+        "FP16": params["FP16"] // 1e12,  # convert to TFLOPS
+        "INT8": params["INT8"] // 1e12,  # convert to TOPS
+        "onchip_buffer": params["onchip_buffer"] // 1e6,  # convert to MB
+    }

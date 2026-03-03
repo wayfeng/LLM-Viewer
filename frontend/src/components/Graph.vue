@@ -32,8 +32,7 @@
 <script setup>
 import G6 from "@antv/g6"
 
-import { onMounted } from 'vue'
-import { watch, inject, ref } from 'vue'
+import { onMounted, watch, inject, ref } from 'vue'
 import { graph_config } from "./graphs/graph_config.js"
 import axios from 'axios'
 import { strNumber, strNumberTime } from '@/utils.js';
@@ -41,13 +40,14 @@ import { Chart, registerables } from 'chart.js';
 
 import annotationPlugin from 'chartjs-plugin-annotation';
 
+const bandwidth = inject('bandwidth')
+const max_ops = inject('max_ops')
+
 const model_id = inject('model_id')
-const hardware = inject('hardware')
 const global_update_trigger = inject('global_update_trigger')
 const global_inference_config = inject('global_inference_config')
 const ip_port = inject('ip_port')
 const total_results = inject('total_results')
-var hardware_info = {}
 var nowFocusNode = null
 var nowFocusNodePrevColor = null
 
@@ -87,7 +87,6 @@ function graphUpdate() {
         url,
         {
             model_id: model_id.value,
-            hardware: hardware.value,
             inference_config: global_inference_config.value
         }
     ).then(function (response) {
@@ -98,7 +97,6 @@ function graphUpdate() {
             all_node_info.value[graph_data.nodes[i].id] = graph_data.nodes[i].info;
         }
         total_results.value = response.data.total_results
-        hardware_info = response.data.hardware_info
 
         const old_ids = new Set(graph.getNodes().map(node => node.get('id')));
         const new_ids = new Set(graph_data.nodes.map(node => node.id));
@@ -176,7 +174,6 @@ function SelectNode(nodeId, moveView = false) {
     }
     const node = graph.findById(nodeId)
     if (node) {
-        // 高亮
         if (node.getModel().style.fill) {
             nowFocusNodePrevColor = node.getModel().style.fill
         } else {
@@ -200,9 +197,9 @@ function update_roofline_model() {
         if (roofline_chart) {
             roofline_chart.destroy();
         }
-        const bandwidth = hardware_info["bandwidth"];
-        const max_OPS = hardware_info["max_OPS"];
-        const turningPoint = max_OPS / bandwidth;
+
+        const max_OPS = max_ops.value
+        const turningPoint = max_OPS / bandwidth.value;
 
         var annotation
         var x_max
