@@ -308,17 +308,16 @@ class LLMAnalyzer(ModelAnalyzer):
                 load_kv_cache=0,
                 store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
             )
-        for name in ["mlp_act"]: # swish activation
-            self._analyze_to_results(
-                "decode",
-                name,
-                OPs=batchsize * hidden_size * 1 * 5 // tp_size,
-                load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
-                store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
-                load_kv_cache=0,
-                store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
-            )
+        self._analyze_to_results(
+            "decode",
+            "mlp_act",
+            OPs=batchsize * hidden_size * 1 * 5 // tp_size,
+            load_weight=0,
+            load_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+            store_act=batchsize * hidden_size * 1 * a_byte // tp_size,
+            load_kv_cache=0,
+            store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
+        )
 
         # for prefill
         qk_matmul_OPs = seqlen * seqlen * head_size * num_attention_heads * batchsize * 2 // tp_size
@@ -486,6 +485,8 @@ class MoEAnalyzer(ModelAnalyzer):
         num_hidden_layers = self.module.get_num_hidden_layers(model_params)
         num_active_experts = self.module.get_num_active_experts(model_params) // tp_size
         num_max_experts = self.module.get_num_experts(model_params) // tp_size
+        num_experts = self.module.get_num_experts(model_params)
+        moe_intermediate_size = self.module.get_moe_intermediate_size(model_params)
 
         for name, (ic, oc) in self.module.get_linear_layers(model_params, tp_size).items():
             # for linear layers
@@ -625,6 +626,17 @@ class MoEAnalyzer(ModelAnalyzer):
                 store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
             )
 
+        self._analyze_to_results(
+            "decode",
+            "gate",
+            OPs=batchsize * hidden_size * num_experts * 2 // tp_size,
+            load_weight=batchsize * num_experts * hidden_size * w_byte // tp_size,
+            load_act=batchsize * num_experts * a_byte // tp_size,
+            store_act=batchsize * num_experts * a_byte // tp_size,
+            load_kv_cache=0,
+            store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
+        )
+
         for name in ["attn_add", "mlp_add"]:
             self._analyze_to_results(
                 "decode",
@@ -636,17 +648,26 @@ class MoEAnalyzer(ModelAnalyzer):
                 load_kv_cache=0,
                 store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
             )
-        for name in ["mlp_act"]: # swish activation
-            self._analyze_to_results(
-                "decode",
-                name,
-                OPs=batchsize * hidden_size * 1 * 5 * num_active_experts,
-                load_weight=0,
-                load_act=batchsize * hidden_size * 1 * a_byte * num_active_experts,
-                store_act=batchsize * hidden_size * 1 * a_byte * num_active_experts,
-                load_kv_cache=0,
-                store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
-            )
+        self._analyze_to_results(
+            "decode",
+            "mlp_act",
+            OPs=batchsize * hidden_size * 1 * 5 * num_active_experts,
+            load_weight=0,
+            load_act=batchsize * hidden_size * 1 * a_byte * num_active_experts,
+            store_act=batchsize * hidden_size * 1 * a_byte * num_active_experts,
+            load_kv_cache=0,
+            store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
+        )
+        self._analyze_to_results(
+            "decode",
+            "mlp_matmul",
+            OPs=batchsize * moe_intermediate_size * hidden_size * 2 * num_active_experts,
+            load_weight=0,
+            load_act=batchsize * moe_intermediate_size * a_byte * num_active_experts,
+            store_act=batchsize * moe_intermediate_size * a_byte * num_active_experts,
+            load_kv_cache=0,
+            store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
+        )
 
         # for prefill
         qk_matmul_OPs = seqlen * seqlen * head_size * num_attention_heads * batchsize * 2 // tp_size
@@ -719,6 +740,16 @@ class MoEAnalyzer(ModelAnalyzer):
                 load_kv_cache=0,
                 store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
             )
+        self._analyze_to_results(
+            "prefill",
+            "gate",
+            OPs=batchsize * seqlen * hidden_size * num_experts * 2 // tp_size,
+            load_weight=batchsize * seqlen * num_experts * hidden_size * w_byte // tp_size,
+            load_act=batchsize * seqlen * num_experts * a_byte // tp_size,
+            store_act=batchsize * seqlen * num_experts * a_byte // tp_size,
+            load_kv_cache=0,
+            store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
+        )
         for name in ["attn_add", "mlp_add"]:
             self._analyze_to_results(
                 "prefill",
@@ -730,17 +761,26 @@ class MoEAnalyzer(ModelAnalyzer):
                 load_kv_cache=0,
                 store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
             )
-        for name in ["mlp_act"]: # swish activation
-            self._analyze_to_results(
-                "prefill",
-                name,
-                OPs=batchsize * hidden_size * seqlen * 1 * 5 * num_active_experts,
-                load_weight=0,
-                load_act=batchsize * hidden_size * seqlen * a_byte * num_active_experts,
-                store_act=batchsize * hidden_size * seqlen * a_byte * num_active_experts,
-                load_kv_cache=0,
-                store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
-            )
+        self._analyze_to_results(
+            "prefill",
+            "mlp_act",
+            OPs=batchsize * hidden_size * seqlen * 1 * 5 * num_active_experts,
+            load_weight=0,
+            load_act=batchsize * hidden_size * seqlen * a_byte * num_active_experts,
+            store_act=batchsize * hidden_size * seqlen * a_byte * num_active_experts,
+            load_kv_cache=0,
+            store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
+        )
+        self._analyze_to_results(
+            "prefill",
+            "mlp_matmul",
+            OPs=seqlen * batchsize * moe_intermediate_size * hidden_size * 2 * num_active_experts,
+            load_weight=0,
+            load_act=seqlen * batchsize * moe_intermediate_size * a_byte * num_active_experts,
+            store_act=seqlen * batchsize * moe_intermediate_size * a_byte * num_active_experts,
+            load_kv_cache=0,
+            store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
+        )
 
         # compute total
         total_results = {"decode": {}, "prefill": {}}
@@ -748,21 +788,21 @@ class MoEAnalyzer(ModelAnalyzer):
             total_results["decode"][data_name] = 0
             total_results["prefill"][data_name] = 0
         for stage in ["decode", "prefill"]:
-            for layer_name, result in self.results[stage].items():
+            for _, result in self.results[stage].items():
                 for data_name in ALL_DATA_NAMES:
                     total_results[stage][data_name] += result[data_name] * num_hidden_layers
 
         # memory footprint
         weight_kv_footprint = total_results["prefill"]["load_weight"] + total_results["prefill"]["store_kv_cache"]
         decode_tmp_act = 0
-        for layer_name, result in self.results["decode"].items():
+        for _, result in self.results["decode"].items():
             decode_tmp_act += result["store_act"]
         total_results["decode"]["memory_consumption"] = decode_tmp_act + weight_kv_footprint
         total_results["decode"]["memory_consumption_tmp_act"] = decode_tmp_act
         total_results["decode"]["memory_consumption_weight"] = total_results["prefill"]["load_weight"]
         total_results["decode"]["memory_consumption_kv_cache"] = total_results["prefill"]["store_kv_cache"]
         prefill_tmp_act = 0
-        for layer_name, result in self.results["prefill"].items():
+        for _, result in self.results["prefill"].items():
             prefill_tmp_act += result["store_act"]
         total_results["prefill"]["memory_consumption"] = prefill_tmp_act + weight_kv_footprint
         total_results["prefill"]["memory_consumption_tmp_act"] = prefill_tmp_act

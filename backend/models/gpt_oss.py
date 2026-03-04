@@ -17,6 +17,9 @@ def get_num_hidden_layers(model_params):
 def get_intermediate_size(model_params):
     return model_params["intermediate_size"]
 
+def get_moe_intermediate_size(model_params):
+    return model_params["intermediate_size"]
+
 def get_vocab_size(model_params):
     return model_params["vocab_size"]
 
@@ -53,7 +56,6 @@ def get_linear_layers(model_params, tp_size: int):
     intermediate_size=get_intermediate_size(model_params)
     key_value_heads=get_num_key_value_heads(model_params)
     attention_heads=get_num_attention_heads(model_params)
-    experts = get_num_experts(model_params)
 
     if tp_size > 1:
         assert hidden_size % tp_size == 0
@@ -64,10 +66,9 @@ def get_linear_layers(model_params, tp_size: int):
         "k_proj":[hidden_size, hidden_size * key_value_heads // attention_heads // tp_size],
         "v_proj":[hidden_size, hidden_size * key_value_heads // attention_heads // tp_size],
         "out_proj":[hidden_size // tp_size, hidden_size],
-        "gate":[hidden_size // tp_size, experts // tp_size],
-        "gate_proj":[hidden_size, intermediate_size // tp_size],
-        "up_proj":[hidden_size,intermediate_size // tp_size],
-        "down_proj":[intermediate_size // tp_size, hidden_size],
+        "gate_proj":[hidden_size, intermediate_size],
+        "up_proj":[hidden_size,intermediate_size],
+        "down_proj":[intermediate_size, hidden_size],
     }
 
 # name, input_names
@@ -87,8 +88,9 @@ transformer_layer_graph={
     "mlp_norm":["gate"],
     "gate_proj":["mlp_norm"],
     "up_proj":["mlp_norm"],
-    "mlp_act":["gate_proj", "up_proj"],
-    "down_proj":["mlp_act"],
+    "mlp_act":["gate_proj"],
+    "mlp_matmul":["mlp_act", "up_proj"],
+    "down_proj":["mlp_matmul"],
     "mlp_add":["attn_add","down_proj"],
     "output":["mlp_add"]
 }
@@ -105,8 +107,9 @@ flashattention_transformer_layer_graph={
     "mlp_norm":["attn_add"],
     "gate_proj":["mlp_norm"],
     "up_proj":["mlp_norm"],
-    "mlp_act":["gate_proj", "up_proj"],
-    "down_proj":["mlp_act"],
+    "mlp_act":["gate_proj"],
+    "mlp_matmul":["mlp_act", "up_proj"],
+    "down_proj":["mlp_matmul"],
     "mlp_add":["attn_add","down_proj"],
     "output":["mlp_add"]
 }

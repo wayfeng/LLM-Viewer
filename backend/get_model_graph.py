@@ -12,7 +12,7 @@ def get_model_graph(model_id, inference_config):
             configs[key] = inference_config[key]
 
     analyzer = get_analyzer(model_id)
-    result = analyzer.analyze(**configs)
+    result = analyzer.analyze(**inference_config)
 
     GQA = analyzer.if_group_qa()
 

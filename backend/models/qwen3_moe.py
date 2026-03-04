@@ -54,7 +54,6 @@ def post_process(model_params,args):
     return layers
 
 def get_linear_layers(model_params, tp_size: int):
-    num_experts = get_num_experts(model_params)
     hidden_size=get_hidden_size(model_params)
     intermediate_size=get_intermediate_size(model_params)
     key_value_heads=get_num_key_value_heads(model_params)
@@ -65,13 +64,12 @@ def get_linear_layers(model_params, tp_size: int):
         assert hidden_size % tp_size == 0
         assert intermediate_size % tp_size == 0
         assert key_value_heads % tp_size == 0
-    
+
     return {
-        "q_proj":[hidden_size, hidden_size // tp_size],
-        "k_proj":[hidden_size, hidden_size * key_value_heads // attention_heads // tp_size],
-        "v_proj":[hidden_size, hidden_size * key_value_heads // attention_heads // tp_size],
-        "out_proj":[hidden_size // tp_size, hidden_size],
-	    "gate": [hidden_size, num_experts],
+        "q_proj":[hidden_size, hidden_size],
+        "k_proj":[hidden_size, hidden_size * key_value_heads // attention_heads],
+        "v_proj":[hidden_size, hidden_size * key_value_heads // attention_heads],
+        "out_proj":[hidden_size, hidden_size],
         "gate_proj":[hidden_size, moe_intermediate_size],
         "up_proj":[hidden_size, moe_intermediate_size],
         "down_proj":[moe_intermediate_size, hidden_size],
@@ -94,8 +92,9 @@ transformer_layer_graph={
     "mlp_norm":["gate"],
     "gate_proj":["mlp_norm"],
     "up_proj":["mlp_norm"],
-    "mlp_act":["gate_proj", "up_proj"],
-    "down_proj":["mlp_act"],
+    "mlp_act":["gate_proj"],
+    "mlp_matmul":["mlp_act", "up_proj"],
+    "down_proj":["mlp_matmul"],
     "mlp_add":["attn_add","down_proj"],
     "output":["mlp_add"]
 }
@@ -114,8 +113,9 @@ flashattention_transformer_layer_graph={
     "mlp_norm":["gate"],
     "gate_proj":["mlp_norm"],
     "up_proj":["mlp_norm"],
-    "mlp_act":["gate_proj", "up_proj"],
-    "down_proj":["mlp_act"],
+    "mlp_act":["gate_proj"],
+    "mlp_matmul":["mlp_act", "up_proj"],
+    "down_proj":["mlp_matmul"],
     "mlp_add":["attn_add","down_proj"],
     "output":["mlp_add"]
 }
