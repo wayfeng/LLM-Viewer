@@ -235,6 +235,9 @@ watch(select_hardware, (n) => {
 onMounted(() => {
     console.log("Left panel mounted")
     update_available()
+    if (hardware.value != "custom") {
+        update_hardware_info()
+    }
 })
 
 </script>

@@ -317,10 +317,8 @@ onMounted(() => {
     graph.on('canvas:click', (event) => {
         release_select()
     });
-    graphUpdate(true);
+    //graphUpdate();
     graph.render();
-    
-    
 })
 
 function clickNode(node) {
