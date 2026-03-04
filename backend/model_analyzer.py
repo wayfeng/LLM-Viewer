@@ -4,6 +4,7 @@ import math
 from roofline_model import roofline_analyze
 from model_params import load_model_params
 from utils import print_params
+from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -795,6 +796,8 @@ class YOLOAnalyzer(ModelAnalyzer):
     def analyze(self, **kwargs):
         return super().analyze(**kwargs)
 
+
+@lru_cache(maxsize=128)
 def get_analyzer(model_id) -> ModelAnalyzer:
     params = load_model_params(model_id)
     model_type = params["model_type"]
@@ -805,5 +808,4 @@ def get_analyzer(model_id) -> ModelAnalyzer:
             break
     if analyzer_class is None:
         raise ValueError(f"Unknown model_type: {model_type}")
-    ma = analyzer_class(model_id, model_params=params)
-    return ma
+    return analyzer_class(model_id, model_params=params)
