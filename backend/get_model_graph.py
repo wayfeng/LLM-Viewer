@@ -4,7 +4,7 @@ from utils import str_number, print_params
 @print_params
 def get_model_graph(model_id, inference_config):
     use_flashattention = bool(inference_config["use_flashattention"])
-    gen_length = int(inference_config["genlen"])
+    genlen = int(inference_config["genlen"])
 
     configs = {}
     for key in inference_config.keys():
@@ -41,17 +41,6 @@ def get_model_graph(model_id, inference_config):
     total_results = result["total_results"]
     stage_results = result["prefill"] if stage == "chat" else result[stage]
 
-    #TODO: move to analyzer
-    if stage == "chat":
-        # seq_length:seq_length+gen_length
-        total_results["chat"] = total_results["prefill"]
-        for k, v in result["total_results"]["decode"].items():
-            total_results["chat"][k] += v * gen_length
-        for name, input_names in layer_graph.items():
-            if name in result["decode"]:
-                stage_results[name]["OPs"] += result["decode"][name]["OPs"] * gen_length
-                stage_results[name]["memory_access"] += result["decode"][name]["memory_access"] * gen_length
-
     for name, input_names in layer_graph.items():
         if name in ["input", "output"]:
             OPs = 0
@@ -62,5 +51,8 @@ def get_model_graph(model_id, inference_config):
             memory_access = stage_results[name]["memory_access"]
             info = stage_results[name]
         write_to_node(name, OPs, memory_access, info, input_names)
+
+    if stage == "chat":
+        analyzer.analyze_chat(genlen, use_flashattention)
 
     return nodes, edges, total_results

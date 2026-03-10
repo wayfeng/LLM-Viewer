@@ -60,35 +60,3 @@ def load_model_params(model_id: str, config_file: str = None):
     with open(config_file, "r") as f:
         model_params = json.load(f)
     return model_params
-
-
-class AbstractModelConfig:
-    def get_num_attention_heads(self, model_params):
-        raise NotImplementedError
-
-    def get_hidden_size(self, model_params):
-        raise NotImplementedError
-
-    def get_head_dim(self, model_params):
-        raise NotImplementedError
-
-    def get_num_key_value_heads(self, model_params):
-        raise NotImplementedError
-
-    def get_norm_layers(self, model_params):
-        raise NotImplementedError
-
-    def get_num_hidden_layers(self, model_params):
-        raise NotImplementedError
-
-    def get_intermediate_size(self, model_params):
-        raise NotImplementedError
-
-    def get_vocab_size(self, model_params):
-        raise NotImplementedError
-
-    def post_process(self, model_params, args):
-        raise NotImplementedError
-
-    def get_linear_layers(self, model_params, tp_size: int):
-        raise NotImplementedError

@@ -29,41 +29,12 @@ def get_num_experts(model_params):
 def get_num_active_experts(model_params):
     return model_params["num_experts_per_tok"]
 
-def post_process(model_params,args):
-    hiddensize=get_hidden_size(model_params)
-    vocab_size=get_vocab_size(model_params)
-    layers=[]
-
-    layers.append({
-        'name': 'lm_head',
-        'stage': "prefill",
-        'OPs': args['batchsize'] * args['seqlen'] * hiddensize * vocab_size * 2,
-        'load_weight': hiddensize * vocab_size * args['w_byte'],
-        'load_act': args['batchsize'] * args['seqlen'] * hiddensize * args['a_byte'],
-        'store_act': args['batchsize'] * args['seqlen'] * vocab_size * args['a_byte'],
-    })
-
-    layers.append({
-        'name': 'lm_head',
-        'stage': "decode",
-        'OPs': args['batchsize'] * hiddensize * vocab_size * 2,
-        'load_weight': hiddensize * vocab_size * args['w_byte'],
-        'load_act': args['batchsize'] * hiddensize * args['a_byte'],
-        'store_act': args['batchsize'] * vocab_size * args['a_byte'],
-    })
-    return layers
-
-def get_linear_layers(model_params, tp_size: int):
+def get_linear_layers(model_params):
     hidden_size=get_hidden_size(model_params)
     intermediate_size=get_intermediate_size(model_params)
     key_value_heads=get_num_key_value_heads(model_params)
     attention_heads=get_num_attention_heads(model_params)
     moe_intermediate_size = get_moe_intermediate_size(model_params)
-
-    if tp_size > 1:
-        assert hidden_size % tp_size == 0
-        assert intermediate_size % tp_size == 0
-        assert key_value_heads % tp_size == 0
 
     return {
         "q_proj":[hidden_size, hidden_size],
