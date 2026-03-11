@@ -13,17 +13,15 @@ def save_csv(results, save_path=None):
             os.makedirs(save_path)
         save_path += f"{args.model_id[args.model_id.rfind('/'):]}"
 
-    decode_file_name = f"{save_path}_decode.csv"
-    prefill_file_name = f"{save_path}_prefill.csv"
-    print(f"save to {decode_file_name} and {prefill_file_name}")
+    for stage in results.keys():
+        if stage == "total_results":
+            continue
 
-    for file_name, stage in [
-        (decode_file_name, "decode"),
-        (prefill_file_name, "prefill"),
-    ]:
+        file_name = f"{save_path}_{stage}.csv"
+
         with open(file_name, "a+") as f:
             f.write(
-                f"\n\n=== [{time.strftime('%Y-%m-%d %H:%M:%S')}] {args.model_id} {args.hardware} w_bit={args.w_bit} a_bit={args.a_bit} kv_bit={args.kv_bit} batchsize={args.batchsize} seqlen={args.seqlen} tp_size={args.tp_size} ===\n"
+                f"\n\n# [{time.strftime('%Y-%m-%d %H:%M:%S')}] {args.model_id} {args.hardware} w_bit={args.w_bit} a_bit={args.a_bit} kv_bit={args.kv_bit} batchsize={args.batchsize} seqlen={args.seqlen} tp_size={args.tp_size}\n"
             )
             # legend
             f.write(
@@ -41,8 +39,11 @@ if __name__ == "__main__":
     parser.add_argument("model_id", type=str, help=f"choose one from {get_available_models()}")
     parser.add_argument("hardware", type=str, help=f"choose one from {list(hardware_params.keys())}")
     parser.add_argument("--config_file", type=str, default=None, help="config file")
-    parser.add_argument("--batchsize", type=int, default=1, help="batch size")
+    parser.add_argument("-b", "--batchsize", type=int, default=1, help="batch size")
+    parser.add_argument("-W", "--image_width", type=int, default=1024, help="input image width for vision models")
+    parser.add_argument("-H", "--image_height", type=int, default=1024, help="input image height for vision models")
     parser.add_argument("--seqlen", type=int, default=1024, help="sequence length")
+    parser.add_argument("--genlen", type=int, default=0, help="generated sequence length for chat stage")
     parser.add_argument("--w_bit", type=int, default=16, help="weight bitwidth")
     parser.add_argument("--a_bit", type=int, default=16, help="temporary activation bitwidth")
     parser.add_argument("--kv_bit", type=int, default=16, help="kv cache bitwidth")
@@ -52,8 +53,16 @@ if __name__ == "__main__":
 
     hw = args.hardware
     assert hw in hardware_params
+
+    if args.genlen > 0:
+         print(f"analyzing chat stage with genlen={args.genlen}...")
+         stage = 'chat'
+    else:
+        print(f"analyzing prefill stage with seqlen={args.seqlen}...")
+        stage = 'prefill'
     analyzer = get_analyzer(args.model_id)
     configs = {
+        'stage': stage,
         "batchsize": args.batchsize,
         "seqlen": args.seqlen,
         "w_bit": args.w_bit,
@@ -65,6 +74,7 @@ if __name__ == "__main__":
         "fp16_tops": hardware_params[hw]["FP16"],
         "int8_tops": hardware_params[hw]["INT8"],
         "onchip_buffer": hardware_params[hw]["onchip_buffer"],
+        "image_size": (args.image_width, args.image_height),
     }
     results = analyzer.analyze(**configs)
     save_csv(results)

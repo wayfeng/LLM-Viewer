@@ -33,14 +33,14 @@ def get_model_graph(model_id, inference_config):
             edge = {"source": input_name, "target": name}
             edges.append(edge)
 
+    stage = inference_config["stage"]
+    total_results = result["total_results"]
+    stage_results = result[stage]
+
     if use_flashattention:
         layer_graph = analyzer.module.flashattention_transformer_layer_graph
     else:
         layer_graph = analyzer.module.transformer_layer_graph
-    stage = inference_config["stage"]
-    total_results = result["total_results"]
-    stage_results = result["prefill"] if stage == "chat" else result[stage]
-
     for name, input_names in layer_graph.items():
         if name in ["input", "output"]:
             OPs = 0
@@ -51,8 +51,5 @@ def get_model_graph(model_id, inference_config):
             memory_access = stage_results[name]["memory_access"]
             info = stage_results[name]
         write_to_node(name, OPs, memory_access, info, input_names)
-
-    if stage == "chat":
-        analyzer.analyze_chat(genlen, use_flashattention)
 
     return nodes, edges, total_results

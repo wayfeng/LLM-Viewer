@@ -18,6 +18,10 @@ available_model_ids_sources = {
     "LLM-Research/Meta-Llama-3.1-405B": {"source": "modelscope"},
     "zai-org/chatglm3-6b": {"source": "huggingface"},
     "deepseek-ai/DeepSeek-R1-Distill-Llama-70B": {"source": "huggingface"},
+    "Qwen/Qwen3-VL-2B-Instruct": {"source": "huggingface"},
+    "Qwen/Qwen3-VL-4B-Instruct": {"source": "huggingface"},
+    "Qwen/Qwen3-VL-8B-Instruct": {"source": "huggingface"},
+    "Qwen/Qwen3-VL-32B-Instruct": {"source": "huggingface"},
 }
 
 def get_available_models():

@@ -8,8 +8,8 @@ parser.add_argument("model_id", type=str, help=f"choose one from {get_available_
 parser.add_argument("hardware", type=str, help=f"choose one from {list(hardware_params.keys())}")
 parser.add_argument("--config_file", type=str, default=None, help="config file")
 parser.add_argument("--batchsize", type=int, default=1, help="batch size")
-parser.add_argument("--seqlen", type=int, default=1024, help="sequence length")
-parser.add_argument("--promptlen", type=int, default=128, help="prompt sequence length")
+parser.add_argument("--genlen", type=int, default=1024, help="generated sequence length")
+parser.add_argument("--seqlen", type=int, default=128, help="prompt sequence length")
 parser.add_argument("--w_bit", type=int, default=16, help="weight bitwidth")
 parser.add_argument("--a_bit", type=int, default=16, help="temporary activation bitwidth")
 parser.add_argument("--kv_bit", type=int, default=16, help="kv cache bitwidth")
@@ -21,8 +21,8 @@ hw = args.hardware
 assert hw in hardware_params
 analyzer=get_analyzer(args.model_id)
 ret = analyzer.analyze_generate_task(
-    args.promptlen,
     args.seqlen,
+    args.genlen,
     args.batchsize,
     args.w_bit,
     args.a_bit,

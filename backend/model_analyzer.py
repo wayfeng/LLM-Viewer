@@ -1,6 +1,7 @@
 import logging
 import importlib
 import math
+import copy
 from roofline_model import roofline_analyze
 from model_params import load_model_params
 from utils import print_params
@@ -23,6 +24,7 @@ MODEL_ANALYZER_REGISTRY = {
     "LLMAnalyzer": ["qwen3", "qwen2", "qwen2_5", "llama", "chatglm"],
     "MoEAnalyzer": ["qwen3_moe", "qwen2_moe", "qwen2_5_moe", "gpt_oss"],
     "VLMAnalyzer": ["qwen3_vl", "qwen2_vl", "qwen2_5_vl"],
+    "VLMoEAnalyzer": ["qwen3_vl_moe"],
 }
 
 
@@ -35,6 +37,7 @@ class ModelAnalyzer:
  
         # temporary variables for analysis
         self.results = None
+        self.total_results = {}
 
     def analyze(self, **kwargs):
         """
@@ -301,26 +304,18 @@ class LLMAnalyzer(ModelAnalyzer):
             store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
         )
 
-    def analyze_chat(self, genlen, use_flashattention=False, **kwargs):
-        total_results = self.results["total_results"]
+        self.accumulate_layers(mode)
 
-        stage_results = self.results["prefill"]
-        # seq_length:seq_length+gen_length
-        total_results["chat"] = total_results["prefill"]
-        for k, v in self.results["total_results"]["decode"].items():
-            total_results["chat"][k] += v * genlen
+    def accumulate_layers(self, mode):
+        num_hidden_layers = self.module.get_num_hidden_layers(self.model_params)
+        self.total_results[mode] = {}
+        for data_name in ALL_DATA_NAMES:
+            self.total_results[mode][data_name] = 0
+        for _, result in self.results[mode].items():
+            for data_name in ALL_DATA_NAMES:
+                self.total_results[mode][data_name] += result[data_name] * num_hidden_layers
 
-        if use_flashattention:
-            layer_graph = self.module.flashattention_transformer_layer_graph
-        else:
-            layer_graph = self.module.transformer_layer_graph
-
-        for name, _ in layer_graph.items():
-            if name in self.results["decode"]:
-                stage_results[name]["OPs"] += self.results["decode"][name]["OPs"] * genlen
-                stage_results[name]["memory_access"] += self.results["decode"][name]["memory_access"] * genlen
-
-    def analyze_lm_head(self, total_results, **kwargs):
+    def analyze_lm_head(self, **kwargs):
         batchsize = kwargs.get("batchsize", 1)
         bandwidth = kwargs.get("bandwidth")
         seqlen = kwargs.get("seqlen", 1)
@@ -351,59 +346,76 @@ class LLMAnalyzer(ModelAnalyzer):
         self._analyze_to_results(
             "prefill", name,
             OPs=seqlen * batchsize * hidden_size * vocab_size * 2,
-            load_weight=1 * hidden_size * vocab_size * w_byte,
+            load_weight=1 * hidden_size * vocab_size * w_byte, # only once?
             load_act=seqlen * batchsize * hidden_size * a_byte,
             store_act=seqlen * batchsize * vocab_size * a_byte,
             load_kv_cache=0, store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
         )
         for dname in ALL_DATA_NAMES:
-            total_results["decode"][dname] += self.results["decode"][name][dname]
-            total_results["prefill"][dname] += self.results["prefill"][name][dname]
+            self.total_results["decode"][dname] += self.results["decode"][name][dname]
+            self.total_results["prefill"][dname] += self.results["prefill"][name][dname]
 
-        return total_results
 
-    def compute_total_results(self, **kwargs):
-        num_hidden_layers = self.module.get_num_hidden_layers(self.model_params)
-        # compute total
-        total_results = {"decode": {}, "prefill": {}}
-        for data_name in ALL_DATA_NAMES:
-            total_results["decode"][data_name] = 0
-            total_results["prefill"][data_name] = 0
-        for stage in ["decode", "prefill"]:
-            for _, result in self.results[stage].items():
-                for data_name in ALL_DATA_NAMES:
-                    total_results[stage][data_name] += result[data_name] * num_hidden_layers
+    def analyze_chat(self, genlen, use_flashattention=False, **kwargs):
+        if use_flashattention:
+            layer_graph = self.module.flashattention_transformer_layer_graph
+        else:
+            layer_graph = self.module.transformer_layer_graph
+
+        # accumulate the OPs and memory access of each layer in prefill and decode stage according to genlen
+        stage_results = copy.deepcopy(self.results["prefill"])
+        for name, _ in layer_graph.items():
+            if name in self.results["decode"]:
+                stage_results[name]["OPs"] += self.results["decode"][name]["OPs"] * genlen
+                stage_results[name]["memory_access"] += self.results["decode"][name]["memory_access"] * genlen
+        self.results["chat"] = stage_results
+
+        # accumulate the OPs and memory access of decode stage according to genlen
+        self.total_results["chat"] = copy.deepcopy(self.total_results["prefill"])
+        for k, v in self.total_results["decode"].items():
+            self.total_results["chat"][k] += v * genlen
+
+    def compute_stats(self, **kwargs):
 
         # memory footprint
-        weight_kv_footprint = total_results["prefill"]["load_weight"] + total_results["prefill"]["store_kv_cache"]
+        weight_kv_footprint = self.total_results["prefill"]["load_weight"] + self.total_results["prefill"]["store_kv_cache"]
         decode_tmp_act = 0
         for _, result in self.results["decode"].items():
             decode_tmp_act += result["store_act"]
-        total_results["decode"]["memory_consumption"] = decode_tmp_act + weight_kv_footprint
-        total_results["decode"]["memory_consumption_tmp_act"] = decode_tmp_act
-        total_results["decode"]["memory_consumption_weight"] = total_results["prefill"]["load_weight"]
-        total_results["decode"]["memory_consumption_kv_cache"] = total_results["prefill"]["store_kv_cache"]
+        self.total_results["decode"]["memory_consumption"] = decode_tmp_act + weight_kv_footprint
+        self.total_results["decode"]["memory_consumption_tmp_act"] = decode_tmp_act
+        self.total_results["decode"]["memory_consumption_weight"] = self.total_results["prefill"]["load_weight"]
+        self.total_results["decode"]["memory_consumption_kv_cache"] = self.total_results["prefill"]["store_kv_cache"]
         prefill_tmp_act = 0
         for _, result in self.results["prefill"].items():
             prefill_tmp_act += result["store_act"]
-        total_results["prefill"]["memory_consumption"] = prefill_tmp_act + weight_kv_footprint
-        total_results["prefill"]["memory_consumption_tmp_act"] = prefill_tmp_act
-        total_results["prefill"]["memory_consumption_weight"] = total_results["prefill"]["load_weight"]
-        total_results["prefill"]["memory_consumption_kv_cache"] = total_results["prefill"]["store_kv_cache"]
+        self.total_results["prefill"]["memory_consumption"] = prefill_tmp_act + weight_kv_footprint
+        self.total_results["prefill"]["memory_consumption_tmp_act"] = prefill_tmp_act
+        self.total_results["prefill"]["memory_consumption_weight"] = self.total_results["prefill"]["load_weight"]
+        self.total_results["prefill"]["memory_consumption_kv_cache"] = self.total_results["prefill"]["store_kv_cache"]
 
-        return total_results
+        return self.total_results
 
     def analyze(self, **kwargs):
-        self.results = {"decode": {}, "prefill": {}}
+        stage = kwargs.get("stage", "decode")
+        self.results = {"decode": {}, "prefill": {}, "total_results": None}
 
+        # analyze each layer in decode and prefill stage
         self.analyze_decode_layer("prefill", **kwargs)
         self.analyze_decode_layer("decode", **kwargs)
 
-        # compute total
-        total_results = self.compute_total_results(**kwargs)
         # lm_head
-        self.analyze_lm_head(total_results, **kwargs)
-        self.results["total_results"] = total_results
+        self.analyze_lm_head(**kwargs)
+
+        # compute memory statistics
+        self.compute_stats(**kwargs)
+
+        if stage == "chat":
+            genlen = kwargs.get("genlen", 1)
+            use_flashattention = kwargs.get("use_flashattention", False)
+            self.analyze_chat(genlen, use_flashattention)
+
+        self.results["total_results"] = self.total_results
         return self.results
 
 
@@ -590,24 +602,302 @@ class MoEAnalyzer(LLMAnalyzer):
             store_kv_cache=0, max_ops=max_ops, bandwidth=bandwidth
         )
 
-    def analyze(self, **kwargs):
-        self.results = {"decode": {}, "prefill": {}}
+        self.accumulate_layers(mode)
 
-        self.analyze_decode_layer("prefill", **kwargs)
-        self.analyze_decode_layer("decode", **kwargs)
-
-        total_results = self.compute_total_results(**kwargs)
-        self.analyze_lm_head(total_results, **kwargs)
-
-        self.results["total_results"] = total_results
-        return self.results
-
-class VLMAnalyzer(ModelAnalyzer):
+class VLMAnalyzer(LLMAnalyzer):
     def __init__(self, model_id, model_params=None):
         super().__init__(model_id, model_params=model_params)
 
+    def _parse_image_size(self, size):
+        if isinstance(size, dict):
+            # 字典格式：{"width": 1024, "height": 768} 或 {"w": 1024, "h": 768}
+            width = size.get("width") or size.get("w")
+            height = size.get("height") or size.get("h")
+            if width and height:
+                return int(width), int(height)
+        if isinstance(size, (list, tuple)) and len(size) == 2:
+            # 列表或元组格式：[1024, 768]
+            return int(size[0]), int(size[1])
+        if isinstance(size, str) and "x" in size:
+            # 字符串格式："1024x768"
+            parts = size.lower().split("x")
+            if len(parts) == 2:
+                return int(parts[0]), int(parts[1])
+        # 默认尺寸
+        return 1024, 1024
+
+    def analyze_vision_encoder(self, **kwargs):
+        image_size = kwargs.get("image_size", (1024, 1024))
+        batchsize = kwargs.get("batchsize", 1)
+        w_bit = kwargs.get("w_bit", 16)
+        a_bit = kwargs.get("a_bit", 16)
+        kv_bit = kwargs.get("kv_bit", 16)
+        fp16_tops = kwargs.get("fp16_tops")
+        int8_tops = kwargs.get("int8_tops")
+        bandwidth = kwargs.get("bandwidth")
+        tp_size = kwargs.get("tp_size", 1)
+        onchip_buffer = kwargs.get("onchip_buffer")
+        use_flashattention = kwargs.get("use_flashattention", False)
+
+        w_byte = math.ceil(w_bit / 8)
+        a_byte = math.ceil(a_bit / 8)
+
+        max_ops = int8_tops if w_bit <= 8 and a_bit <= 8 and kv_bit <= 8 else fp16_tops
+
+        # Parse image size and get vision encoder parameters
+        model_params = self.model_params
+        image_w, image_h = self._parse_image_size(image_size)
+        patch_size = self.module.get_vision_patch_size(model_params)  # Patch size (e.g., 14x14)
+        spatial_merge_size = self.module.get_vision_spatial_merge_size(model_params)  # spatial merge size
+        in_channels = self.module.get_vision_in_channels(model_params)  # Number of input channels (usually 3 for RGB)
+        vision_hidden_size = self.module.get_vision_hidden_size(model_params)  # Vision encoder hidden size
+        nheads = self.module.get_vision_num_heads(model_params)  # Number of vision encoder attention heads
+        vision_intermediate_size = self.module.get_vision_intermediate_size(model_params)  # Vision encoder intermediate size
+        out_hidden_size = self.module.get_vision_out_hidden_size(model_params)  # Vision encoder output hidden size
+        nlayers = self.module.get_vision_num_hidden_layers(model_params)  # Number of vision encoder layers
+
+        # Compute patch count and merged token count
+        num_patches_w = max(1, math.ceil(image_w / patch_size))  # Number of patches along width
+        num_patches_h = max(1, math.ceil(image_h / patch_size))  # Number of patches along height
+        num_patches = num_patches_w * num_patches_h  # Total number of patches
+        merged_tokens = max(1, math.ceil(num_patches / max(1, spatial_merge_size) ** 2))  # Token count after spatial merge
+
+        stage = "vision"
+        # Analyze patch embedding layer
+        patch_ic = in_channels * patch_size * patch_size  # Input channels after patch flattening (e.g., 3*14*14=588)
+        patch_oc = vision_hidden_size  # Output channels
+        self._analyze_to_results(
+            stage,
+            "vision_patch_embed",
+            OPs=patch_ic * patch_oc * batchsize * num_patches * 2,  # Compute cost for convolution or linear projection
+            load_weight=patch_ic * patch_oc * w_byte,
+            load_act=patch_ic * batchsize * num_patches * a_byte,
+            store_act=patch_oc * batchsize * num_patches * a_byte,
+            load_kv_cache=0,
+            store_kv_cache=0,
+            max_ops=max_ops,
+            bandwidth=bandwidth
+        )
+
+        # Analyze vision encoder linear layers (Q/K/V projections and MLP)
+        for name, (ic, oc) in self.module.get_vision_linear_layers(model_params).items():
+            self._analyze_to_results(
+                stage,
+                name,
+                OPs=ic * oc * batchsize * merged_tokens * 2,  # Compute cost of linear layers
+                load_weight=ic * oc * w_byte,
+                load_act=ic * batchsize * merged_tokens * a_byte,
+                store_act=oc * batchsize * merged_tokens * a_byte,
+                load_kv_cache=0,
+                store_kv_cache=0,
+                max_ops=max_ops,
+                bandwidth=bandwidth
+            )
+
+        # Analyze vision encoder attention
+        vision_head_size = vision_hidden_size // nheads  # Dimension per attention head
+        v_qk_OPs = merged_tokens * merged_tokens * vision_head_size * nheads * batchsize * 2  # Q @ K^T
+        v_sv_OPs = merged_tokens * vision_head_size * merged_tokens * nheads * batchsize * 2  # Softmax(QK^T) @ V
+        v_softmax_OPs = batchsize * nheads * merged_tokens * merged_tokens * 5  # Softmax operations
+
+        #TODO: if fuse attention apply to vision encoder and text decoder at the same time,
+        # we may need to consider the interaction between them, e.g., whether they can share
+        # the on-chip buffer for attention computation, which may affect the block size and
+        # memory access patterns. For simplicity, we currently analyze them separately without
+        # considering potential resource sharing or contention. In practice, the actual
+        # performance may depend on how well the attention computations of both branches
+        # are scheduled and optimized together on the hardware.
+        if use_flashattention:
+            name = "vision_fused_attention"
+            block_size_r = min(math.ceil(onchip_buffer / (a_byte * vision_head_size)), vision_head_size)
+            n_blocks_r = math.ceil(merged_tokens / block_size_r)
+            q_numel = merged_tokens * vision_head_size * batchsize * nheads * a_byte
+            kv_numel = merged_tokens * vision_head_size * batchsize * nheads * a_byte * 2  # K and V
+            o_numel = merged_tokens * merged_tokens * batchsize * nheads * a_byte
+            self._analyze_to_results(
+                stage,
+                name,
+                OPs=v_qk_OPs + v_sv_OPs + v_softmax_OPs,
+                load_weight=0,
+                load_act=q_numel + kv_numel,
+                store_act=o_numel * 2,
+                load_kv_cache=0,
+                store_kv_cache=0,
+                max_ops=max_ops,
+                bandwidth=bandwidth
+            )
+        else:
+            self._analyze_to_results(
+                stage,
+                "vision_qk_matmul",
+                OPs=v_qk_OPs,
+                load_weight=0,
+                load_act=merged_tokens * vision_head_size * batchsize * nheads * a_byte,
+                store_act=merged_tokens * merged_tokens * batchsize * nheads * a_byte,
+                load_kv_cache=0,
+                store_kv_cache=0,
+                max_ops=max_ops,
+                bandwidth=bandwidth
+
+            )
+            self._analyze_to_results(
+                stage,
+                "vision_sv_matmul",
+                OPs=v_sv_OPs,
+                load_weight=0,
+                load_act=merged_tokens * merged_tokens * batchsize * nheads * a_byte,
+                store_act=merged_tokens * vision_head_size * batchsize * nheads * a_byte,
+                load_kv_cache=0,
+                store_kv_cache=0,
+                max_ops=max_ops,
+                bandwidth=bandwidth
+
+            )
+            self._analyze_to_results(
+                stage,
+                "vision_softmax",
+                OPs=v_softmax_OPs,
+                load_weight=0,
+                load_act=batchsize * nheads * merged_tokens * merged_tokens * a_byte,
+                store_act=batchsize * nheads * merged_tokens * merged_tokens * a_byte,
+                load_kv_cache=0,
+                store_kv_cache=0,
+                max_ops=max_ops,
+                bandwidth=bandwidth
+            )
+
+        # Analyze vision encoder normalization layers
+        for name in self.module.get_vision_norm_layers(model_params):
+            norm_OPs = batchsize * vision_hidden_size * merged_tokens * 7  # LayerNorm is approximated as 7 ops
+            self._analyze_to_results(
+                stage,
+                name,
+                OPs=norm_OPs,
+                load_weight=0,
+                load_act=batchsize * vision_hidden_size * merged_tokens * a_byte,
+                store_act=batchsize * vision_hidden_size * merged_tokens * a_byte,
+                load_kv_cache=0,
+                store_kv_cache=0,
+                max_ops=max_ops,
+                bandwidth=bandwidth
+            )
+
+        # Analyze vision encoder residual connections
+        for name in ["vision_attn_add", "vision_mlp_add"]:
+            self._analyze_to_results(
+                stage,
+                name,
+                OPs=batchsize * vision_hidden_size * merged_tokens,
+                load_weight=0,
+                load_act=batchsize * vision_hidden_size * merged_tokens * a_byte,
+                store_act=batchsize * vision_hidden_size * merged_tokens * a_byte,
+                load_kv_cache=0,
+                store_kv_cache=0,
+                max_ops=max_ops,
+                bandwidth=bandwidth
+            )
+
+        # Analyze vision encoder MLP activation
+        self._analyze_to_results(
+            stage,
+            "vision_mlp_act",
+            OPs=batchsize * vision_hidden_size * merged_tokens * 5,
+            load_weight=0,
+            load_act=batchsize * vision_hidden_size * merged_tokens * a_byte,
+            store_act=batchsize * vision_hidden_size * merged_tokens * a_byte,
+            load_kv_cache=0,
+            store_kv_cache=0,
+            max_ops=max_ops,
+            bandwidth=bandwidth
+        )
+
+        # Accumulate vision-branch results (repeat layers are scaled by layer count)
+        self.total_results[stage] = {}
+        for name, result in self.results[stage].items():
+            for data_name in ALL_DATA_NAMES:
+                self.total_results[stage][data_name] = 0
+            for data_name in ALL_DATA_NAMES:
+                self.total_results[stage][data_name] += result[data_name] * nlayers
+
+        # Handle vision encoder post-processing layers (e.g., projection)
+        hidden_size = self.module.get_vision_hidden_size(model_params)
+        self._analyze_to_results(stage=stage, name="vision_proj",
+            OPs=batchsize * merged_tokens * hidden_size * out_hidden_size * 2,
+            load_weight=hidden_size * out_hidden_size * w_byte,
+            load_act=batchsize * merged_tokens * hidden_size * a_byte,
+            store_act=batchsize * merged_tokens * out_hidden_size * a_byte,
+            max_ops=max_ops, bandwidth=bandwidth)
+        for data_name in ALL_DATA_NAMES:
+            self.total_results[stage][data_name] += self.results[stage]["vision_proj"][data_name]
+
+
+    def compute_stats(self, **kwargs):
+        # Reuse text-decoder memory statistics from LLMAnalyzer.
+        super().compute_stats(**kwargs)
+
+        # Compute vision-branch memory footprint
+        stage = "vision"
+
+        vision_tmp_act = 0
+        for _, result in self.results[stage].items():
+            vision_tmp_act += result["store_act"]
+
+        vision_weight = self.total_results[stage]["load_weight"]
+        self.total_results[stage]["memory_consumption"] = vision_tmp_act + vision_weight
+        self.total_results[stage]["memory_consumption_tmp_act"] = vision_tmp_act
+        self.total_results[stage]["memory_consumption_weight"] = vision_weight
+        self.total_results[stage]["memory_consumption_kv_cache"] = 0  # Vision encoder does not use KV cache
+
+        # ===== Multimodal totals =====
+        # Compute TTFT (Time To First Token) and TPOT (Time Per Output Token)
+        self.total_results["multimodal_ttft"] = {}  # TTFT = vision encoding + text prefill
+        self.total_results["multimodal_tpot"] = {}  # TPOT = text decode
+        for data_name in ALL_DATA_NAMES:
+            # TTFT includes compute from both the vision branch and text prefill branch
+            self.total_results["multimodal_ttft"][data_name] = (
+                self.total_results[stage][data_name] + self.total_results["prefill"][data_name]
+            )
+            # TPOT includes only compute from the text decode branch
+            self.total_results["multimodal_tpot"][data_name] = self.total_results["decode"][data_name]
+
+        # TTFT-stage memory: sum weights, take max temporary activations, and use KV cache from text prefill
+        ttft_weight = (
+            self.total_results[stage]["memory_consumption_weight"] +
+            self.total_results["prefill"]["memory_consumption_weight"]
+        )
+        # Use max temporary activations because vision and text do not peak at the same time
+        ttft_tmp_act = max(
+            self.total_results[stage]["memory_consumption_tmp_act"],
+            self.total_results["prefill"]["memory_consumption_tmp_act"],
+        )
+        ttft_kv = self.total_results["prefill"]["memory_consumption_kv_cache"]
+        self.total_results["multimodal_ttft"]["memory_consumption_weight"] = ttft_weight
+        self.total_results["multimodal_ttft"]["memory_consumption_tmp_act"] = ttft_tmp_act
+        self.total_results["multimodal_ttft"]["memory_consumption_kv_cache"] = ttft_kv
+        self.total_results["multimodal_ttft"]["memory_consumption"] = ttft_weight + ttft_tmp_act + ttft_kv
+
+        # TPOT-stage memory (same as text decode)
+        self.total_results["multimodal_tpot"]["memory_consumption"] = self.total_results["decode"]["memory_consumption"]
+        self.total_results["multimodal_tpot"]["memory_consumption_weight"] = self.total_results["decode"]["memory_consumption_weight"]
+        self.total_results["multimodal_tpot"]["memory_consumption_tmp_act"] = self.total_results["decode"]["memory_consumption_tmp_act"]
+        self.total_results["multimodal_tpot"]["memory_consumption_kv_cache"] = self.total_results["decode"]["memory_consumption_kv_cache"]
+        return self.total_results
+
     def analyze(self, **kwargs):
-        return super().analyze(**kwargs)
+        self.results = {"decode": {}, "prefill": {}, "vision": {}, "total_results": None}
+
+        self.analyze_vision_encoder(**kwargs)
+
+        #TODO: prompt length + vision merged token length for prefill stage
+        self.analyze_decode_layer("prefill", **kwargs)
+        self.analyze_decode_layer("decode", **kwargs)
+        self.analyze_lm_head(**kwargs)
+
+        self.compute_stats()
+
+        self.results["total_results"] = self.total_results
+        return self.results
+
 
 class YOLOAnalyzer(ModelAnalyzer):
     def __init__(self, model_id, model_params=None):
