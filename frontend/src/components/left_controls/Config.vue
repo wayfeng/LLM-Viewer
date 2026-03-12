@@ -5,7 +5,6 @@
         <select v-model="ip_port">
             <option value="172.16.112.118:5000">172.16.112.118</option>
             <option value="172.16.112.60:5000">172.16.112.60</option>
-            <option value="172.16.112.46:5000">172.16.112.46</option>
             <option value="127.0.0.1:5000">localhost</option>
         </select>
     </div>
@@ -41,26 +40,29 @@
     <h3>Inference Config</h3>
     <div class="config_div">
         Stage:
-        <input type="radio" v-model="inference_stage" id="decode" value="decode" checked>
-        <label for="decode">Decode</label>
+        <input type="radio" v-model="inference_stage" id="vision" value="vision" v-if="has_vision_encoder">
+        <label for="vision" v-if="has_vision_encoder">Vision</label>
         <input type="radio" v-model="inference_stage" id="prefill" value="prefill">
         <label for="prefill">Prefill</label>
+        <input type="radio" v-model="inference_stage" id="decode" value="decode" checked>
+        <label for="decode">Decode</label>
         <input type="radio" v-model="inference_stage" id="chat" value="chat">
         <label for="prefill">Chat</label>
+    </div>
+    <div class="config_div" v-if="inference_stage=='vision' || (inference_stage=='chat' && has_vision_encoder)">
+        Image Resolution
+        <input type="text" v-model="image_size" placeholder="e.g. 224x224">
     </div>
     <div class="config_div">
         Batch size
         <input type="number" v-model.lazy="batch_size" min="1" max="256">
     </div>
     <!-- <div class="config_div" v-if="inference_stage!=chat"> -->
-    <div class="config_div" v-if="inference_stage!='chat'">
+    <div class="config_div" v-if="inference_stage!='vision'">
         Prompt Length
         <input type="number" v-model.lazy="seq_length" min="1" max="4096">
     </div>
-    <div class="config_div" v-else>
-        Prompt Length
-        <input type="number" v-model.lazy="seq_length" min="1" max="4096">
-        <br/>
+    <div class="config_div" v-if="inference_stage=='chat'">
         Generate Length
         <!-- <span id="seq_length">1024</span> -->
         <input type="number" v-model.lazy="gen_length" min="1" max="4096">
@@ -153,9 +155,11 @@ const fp16_tops = ref(450);
 const int8_tops = ref(900);
 const memory_bandwidth = ref(1536);
 const onchip_cache = ref(24);
+const image_size = ref("1024x1024");
 
 function trigger_analyze() {
     global_inference_config.value.stage = inference_stage.value
+    global_inference_config.value.image_size = image_size.value
     global_inference_config.value.batchsize = batch_size.value * 1.0
     global_inference_config.value.seqlen = seq_length.value * 1.0
     global_inference_config.value.genlen = gen_length.value * 1.0
@@ -216,10 +220,19 @@ watch(ip_port, (n) => {
     update_available()
 })
 
+const has_vision_encoder = ref(false);
 var select_model_id = ref(model_id.value);
 watch(select_model_id, (n) => {
     console.log("select_model_id", n)
     model_id.value = n
+    const url = 'http://' + ip_port.value + '/model_has_vision_encoder'
+    axios.post(url, { model_id: n }).then(function (response) {
+        console.log(response);
+        has_vision_encoder.value = response.data.has_vision_encoder
+    }).catch(function (error) {
+        console.log("error in get_model_type");
+        console.log(error);
+    });
 })
 
 var select_hardware = ref(hardware.value);

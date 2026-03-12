@@ -851,14 +851,11 @@ class VLMAnalyzer(LLMAnalyzer):
         # ===== Multimodal totals =====
         # Compute TTFT (Time To First Token) and TPOT (Time Per Output Token)
         self.total_results["multimodal_ttft"] = {}  # TTFT = vision encoding + text prefill
-        self.total_results["multimodal_tpot"] = {}  # TPOT = text decode
         for data_name in ALL_DATA_NAMES:
             # TTFT includes compute from both the vision branch and text prefill branch
             self.total_results["multimodal_ttft"][data_name] = (
                 self.total_results[stage][data_name] + self.total_results["prefill"][data_name]
             )
-            # TPOT includes only compute from the text decode branch
-            self.total_results["multimodal_tpot"][data_name] = self.total_results["decode"][data_name]
 
         # TTFT-stage memory: sum weights, take max temporary activations, and use KV cache from text prefill
         ttft_weight = (
@@ -875,13 +872,30 @@ class VLMAnalyzer(LLMAnalyzer):
         self.total_results["multimodal_ttft"]["memory_consumption_tmp_act"] = ttft_tmp_act
         self.total_results["multimodal_ttft"]["memory_consumption_kv_cache"] = ttft_kv
         self.total_results["multimodal_ttft"]["memory_consumption"] = ttft_weight + ttft_tmp_act + ttft_kv
-
-        # TPOT-stage memory (same as text decode)
-        self.total_results["multimodal_tpot"]["memory_consumption"] = self.total_results["decode"]["memory_consumption"]
-        self.total_results["multimodal_tpot"]["memory_consumption_weight"] = self.total_results["decode"]["memory_consumption_weight"]
-        self.total_results["multimodal_tpot"]["memory_consumption_tmp_act"] = self.total_results["decode"]["memory_consumption_tmp_act"]
-        self.total_results["multimodal_tpot"]["memory_consumption_kv_cache"] = self.total_results["decode"]["memory_consumption_kv_cache"]
         return self.total_results
+
+
+    def analyze_chat(self, genlen, use_flashattention=False, **kwargs):
+        if use_flashattention:
+            layer_graph = self.module.vision_flashattention_layer_graph
+        else:
+            layer_graph = self.module.vision_layer_graph
+
+        # accumulate the OPs and memory access of each layer in prefill and decode stage according to genlen
+        stage_results = copy.deepcopy(self.results["prefill"])
+        for name, _ in layer_graph.items():
+            if name in self.results["decode"]:
+                stage_results[name]["OPs"] += self.results["decode"][name]["OPs"] * genlen
+                stage_results[name]["memory_access"] += self.results["decode"][name]["memory_access"] * genlen
+        self.results["chat"] = stage_results
+
+        self.total_results["chat"] = copy.deepcopy(self.total_results["prefill"])
+        # Add vision compute to chat stage since it happens before decoding starts
+        for k, v in self.total_results["vision"].items():
+            self.total_results["chat"][k] += v
+        # accumulate the OPs and memory access of decode stage according to genlen
+        for k, v in self.total_results["decode"].items():
+            self.total_results["chat"][k] += v * genlen
 
     def analyze(self, **kwargs):
         self.results = {"decode": {}, "prefill": {}, "vision": {}, "total_results": None}
@@ -895,7 +909,14 @@ class VLMAnalyzer(LLMAnalyzer):
 
         self.compute_stats()
 
+        stage = kwargs.get("stage", "decode")
+        if stage == "chat":
+            genlen = kwargs.get("genlen", 1)
+            use_flashattention = kwargs.get("use_flashattention", False)
+            self.analyze_chat(genlen, use_flashattention)
+
         self.results["total_results"] = self.total_results
+
         return self.results
 
 

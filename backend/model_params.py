@@ -64,3 +64,11 @@ def load_model_params(model_id: str, config_file: str = None):
     with open(config_file, "r") as f:
         model_params = json.load(f)
     return model_params
+
+def model_has_vision_encoder(model_id: str):
+    model_params = load_model_params(model_id)
+    model_type = model_params.get("model_type", "").lower()
+    if model_type in ["qwen3_vl"]:
+        return True
+    else:
+        return False

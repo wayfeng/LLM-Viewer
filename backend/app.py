@@ -1,7 +1,7 @@
 from flask import Flask, request
 from flask_cors import CORS
 from get_model_graph import get_model_graph
-from model_params import get_available_models
+from model_params import get_available_models, model_has_vision_encoder
 from hardwares import get_available_hardwares, get_hardware_params
 import argparse
 import logging
@@ -39,6 +39,13 @@ def get_available():
 def get_hardware_params_route():
     hardware = request.json["hardware"]
     return get_hardware_params(hardware)
+
+@app.route("/model_has_vision_encoder", methods=["POST"])
+def model_has_vision_encoder_route():
+    model_id = request.json["model_id"]
+    has_vision_encoder = model_has_vision_encoder(model_id)
+    return {"has_vision_encoder": has_vision_encoder}
+
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser()

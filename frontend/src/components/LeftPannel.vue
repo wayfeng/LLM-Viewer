@@ -6,14 +6,6 @@
 
 <script setup>
 import Config from "./left_controls/Config.vue"
-import { inject, ref, watch, computed, onMounted } from 'vue';
-
-const model_id = inject('model_id');
-
-onMounted(() => {
-    console.log("LeftControl onMounted", model_id.value)
-})
-
 </script>
 
 <style>

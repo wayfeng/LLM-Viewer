@@ -16,7 +16,7 @@ def get_model_graph(model_id, inference_config):
 
     GQA = analyzer.if_group_qa()
 
-    nodes = [{"label": "input", "id": "input",}]
+    nodes = []
     edges = []
 
     def write_to_node(name, OPs, memory_access, info, input_names=[]):
@@ -35,21 +35,37 @@ def get_model_graph(model_id, inference_config):
 
     stage = inference_config["stage"]
     total_results = result["total_results"]
-    stage_results = result[stage]
+    stage_results = result[stage] if stage != 'chat' else result['prefill']
 
-    if use_flashattention:
-        layer_graph = analyzer.module.flashattention_transformer_layer_graph
-    else:
-        layer_graph = analyzer.module.transformer_layer_graph
-    for name, input_names in layer_graph.items():
-        if name in ["input", "output"]:
-            OPs = 0
-            memory_access = 0
-            info = {}
+    if stage == 'vision':
+        if use_flashattention:
+            layer_graph = analyzer.module.vision_flashattention_layer_graph
         else:
-            OPs = stage_results[name]["OPs"]
-            memory_access = stage_results[name]["memory_access"]
-            info = stage_results[name]
-        write_to_node(name, OPs, memory_access, info, input_names)
+            layer_graph = analyzer.module.vision_layer_graph
+        for name, input_names in layer_graph.items():
+            if name in ["vision_input", "vision_output"]:
+                OPs = 0
+                memory_access = 0
+                info = {}
+            else:
+                OPs = stage_results[name]["OPs"]
+                memory_access = stage_results[name]["memory_access"]
+                info = stage_results[name]
+            write_to_node(name, OPs, memory_access, info, input_names)
+    else:
+        if use_flashattention:
+            layer_graph = analyzer.module.flashattention_transformer_layer_graph
+        else:
+            layer_graph = analyzer.module.transformer_layer_graph
+        for name, input_names in layer_graph.items():
+            if name in ["input", "output"]:
+                OPs = 0
+                memory_access = 0
+                info = {}
+            else:
+                OPs = stage_results[name]["OPs"]
+                memory_access = stage_results[name]["memory_access"]
+                info = stage_results[name]
+            write_to_node(name, OPs, memory_access, info, input_names)
 
     return nodes, edges, total_results
